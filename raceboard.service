@@ -12,8 +12,10 @@ Type=simple
 User=YOUR-USER
 WorkingDirectory=/home/YOUR-USER/RaceBoard
 EnvironmentFile=-/home/YOUR-USER/RaceBoard/raceboard.env
-ExecStart=/home/YOUR-USER/RaceBoard/.venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8093
+ExecStart=/home/YOUR-USER/RaceBoard/.venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8093 --no-access-log
 # --------------------------------------------------------------------------
+# --no-access-log: every open screen asks for an update once a second, and a
+# journal line per request would bury the lines worth reading.
 
 Restart=on-failure
 RestartSec=5

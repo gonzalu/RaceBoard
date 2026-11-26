@@ -81,8 +81,11 @@ Try it:
 
 ```bash
 set -a; . ./raceboard.env; set +a
-.venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8093
+.venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8093 --no-access-log
 ```
+
+`--no-access-log` keeps uvicorn from logging every request. Each open screen
+asks for an update once a second, which would otherwise bury everything else.
 
 Open `http://<that machine's address>:8093/`.
 
@@ -92,6 +95,27 @@ Run it at boot:
 sed "s#YOUR-USER#$USER#g" raceboard.service | sudo tee /etc/systemd/system/raceboard.service >/dev/null
 sudo systemctl daemon-reload && sudo systemctl enable --now raceboard
 ```
+
+Check it's healthy:
+
+```bash
+systemctl status raceboard --no-pager
+journalctl -u raceboard -n 20 --no-pager
+```
+
+You want a `live timing: subscribed` line and `200 OK` from `api.jolpi.ca`.
+
+## Updating
+
+```bash
+cd ~/RaceBoard && git pull
+.venv/bin/pip install -r backend/requirements.txt
+sed "s#YOUR-USER#$USER#g" raceboard.service | sudo tee /etc/systemd/system/raceboard.service >/dev/null
+sudo systemctl daemon-reload && sudo systemctl restart raceboard
+```
+
+Your `raceboard.env` and recordings are untouched. Screens already showing the
+board reload themselves.
 
 ## Getting it onto a TV
 
@@ -113,7 +137,7 @@ between race weekends:
 ```bash
 RACEBOARD_REPLAY=data/recordings/2026-11-29_Qatar_Grand_Prix_Race.jsonl \
 RACEBOARD_REPLAY_SPEED=4 \
-  .venv/bin/uvicorn backend.main:app --port 8093
+  .venv/bin/uvicorn backend.main:app --port 8093 --no-access-log
 ```
 
 A plain snapshot (one JSON object, the hub's answer to a subscribe) also
