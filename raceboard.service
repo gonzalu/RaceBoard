@@ -1,0 +1,22 @@
+[Unit]
+Description=RaceBoard backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# ---- EDIT THESE ----------------------------------------------------------
+# Or fill them in on the way to systemd:
+#   sed "s#YOUR-USER#$USER#g" raceboard.service | sudo tee /etc/systemd/system/raceboard.service
+User=YOUR-USER
+WorkingDirectory=/home/YOUR-USER/RaceBoard
+EnvironmentFile=-/home/YOUR-USER/RaceBoard/raceboard.env
+ExecStart=/home/YOUR-USER/RaceBoard/.venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8093
+# --------------------------------------------------------------------------
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Your settings. Copy raceboard.env.example.
+raceboard.env
+
+# Recorded live timing sessions and sample snapshots. F1's data, not ours to
+# republish, and they grow by a few MB per session.
+data/
