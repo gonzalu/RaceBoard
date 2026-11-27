@@ -300,7 +300,7 @@ function chunk(text, n) {
 function idlePages(idle) {
   const pages = [];
   if (idle.next) pages.push('next');
-  if (idle.next && (idle.track || idle.forecast)) pages.push('track');
+  if (idle.next && (idle.track || idle.forecast || idle.map)) pages.push('track');
   if (idle.quali && idle.quali.length) pages.push('quali');
   if (idle.drivers.length) pages.push('drivers');
   if (idle.teams.length) pages.push('teams');
@@ -382,15 +382,64 @@ function buildLastFrame(idle) {
   });
 }
 
+function drawLineSeg(x0, y0, x1, y1, color) {
+  // Bresenham: one LED per step, no gaps
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    setPx(x0, y0, color);
+    if (x0 === x1 && y0 === y1) return;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+}
+
+// the outline arrives scaled into a unit square; fit it to the box, centred
+function drawMap(m, bx, by, bw, bh, color) {
+  const k = Math.min((bw - 1) / m.w, (bh - 1) / m.h);
+  const ox = bx + Math.round((bw - 1 - m.w * k) / 2), oy = by + Math.round((bh - 1 - m.h * k) / 2);
+  const pts = m.points.map(p => [ox + p[0] * k, oy + p[1] * k]);
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    drawLineSeg(a[0], a[1], b[0], b[1], color);
+  }
+}
+
 function buildTrackFrame(idle) {
-  const n = idle.next, h = idle.track;
-  drawText(0, 1, fit(`${n.locality}, ${n.country}`.toUpperCase(), 34), C.dim);
-  drawRight(W - 1, 1, 'THE TRACK', C.dim);
-  drawCentered(14, fit(n.circuit.toUpperCase(), 42), C.text);
-  if (h) {
+  const n = idle.next, h = idle.track, m = idle.map;
+  drawText(0, 1, fit(`${n.locality}, ${n.country}`.toUpperCase(), 30), C.dim);
+  drawRight(W - 1, 1, m && m.length_m ? `${(m.length_m / 1000).toFixed(3)} KM` : 'THE TRACK', C.dim);
+  drawCentered(12, fit(n.circuit.toUpperCase(), 42), C.text);
+  hLine(21, C.faint);
+  const bottom = idle.forecast && idle.forecast.length ? 120 : H;
+
+  if (m) {
+    // map on the left, the track's history down the right
+    drawMap(m, 2, 25, 146, bottom - 28, C.cyan);
+    const x = 156;
+    if (h) {
+      drawText(x, 26, `FIRST GP ${h.first}`, C.dim);
+      if (h.count > 1) drawText(x, 36, `${h.count} RACES HERE`, C.dim);
+      if (h.most_wins) {
+        drawText(x, 50, 'MOST WINS', C.dim);
+        drawText(x, 60, fit(`${h.most_wins.driver} ${h.most_wins.wins}`, 16), C.amber);
+      }
+      drawText(x, 74, 'LAST WINNERS', C.dim);
+      h.recent.slice(0, bottom > 130 ? 5 : 4).forEach((r, i) => {
+        const y = 84 + i * 9;
+        drawText(x, y, r.season, C.dim);
+        fillRect(x + 28, y, 2, 7, hex(TEAM_COLOURS[r.team]));
+        drawText(x + 34, y, r.code, C.text);
+      });
+    } else {
+      drawText(x, 26, 'FIRST GP HERE', C.amber);
+    }
+  } else if (h) {
     drawCentered(27, h.count > 1 ? `FIRST GP HERE ${h.first}   ${h.count} RACES` : `FIRST GP HERE ${h.first}`, C.dim);
     if (h.most_wins) drawCentered(39, `MOST WINS  ${h.most_wins.driver} ${h.most_wins.wins}`, C.amber);
-    hLine(51, C.faint);
     drawCentered(56, 'RECENT WINNERS', C.dim);
     h.recent.forEach((r, i) => {
       const y = 68 + i * 10;
@@ -399,12 +448,13 @@ function buildTrackFrame(idle) {
       drawText(130, y, r.code, C.text);
     });
   } else {
-    drawCentered(56, `FIRST GP HERE`, C.amber, 2);
+    drawCentered(56, 'FIRST GP HERE', C.amber, 2);
   }
-  if (idle.forecast && idle.forecast.length) {
-    hLine(121, C.faint);
+
+  if (bottom < H) {
+    hLine(bottom + 1, C.faint);
     const parts = idle.forecast.map(f => `${f.day} ${orIf(f.high, '--')}C ${orIf(f.rain, '--')}%`);
-    drawCentered(127, parts.join('   '), C.text);
+    drawCentered(bottom + 7, parts.join('   '), C.text);
   }
 }
 

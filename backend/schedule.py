@@ -97,6 +97,7 @@ async def refresh(c):
             "locality": loc["locality"],
             "country": loc["country"],
             "date": r["date"],
+            "lat": float(loc["lat"]), "long": float(loc["long"]),
             "sessions": _race_sessions(r),
         }
         _data["quali"] = await _quali(c, r["season"], r["round"])

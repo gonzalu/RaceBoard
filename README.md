@@ -63,8 +63,9 @@ a false one.
 
 - the next Grand Prix, with a countdown to its next session and the weekend's
   schedule in your time zone
-- the track: when it first held a Grand Prix, who has won there most, the
-  last five winners, and the weekend forecast once it's within two weeks
+- the track: a map of the circuit and its length, when it first held a
+  Grand Prix, who has won there most, the last winners, and the weekend
+  forecast once it's within two weeks
 - qualifying, from when it's run until the race
 - driver and constructor standings, with places gained or lost at the last
   round
@@ -78,6 +79,7 @@ a false one.
 | Live timing | `livetiming.formula1.com/signalrcore` | F1's own feed. Unofficial and undocumented; no login needed for timing. Car telemetry and GPS need an F1 TV login, so RaceBoard doesn't use them. |
 | Schedule, standings, results, history | [Jolpica](https://github.com/jolpica/jolpica-f1) (`api.jolpi.ca`) | The successor to the Ergast API. Free, no key. Every winner since 1950 is fetched once and kept in `data/history.json`, refreshed weekly. |
 | Race weekend forecast | [Open-Meteo](https://open-meteo.com/) | Free, no key. |
+| Track maps and lengths | [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) | MIT licence. A copy is kept in `backend/circuits.geojson`, so no download is needed. A circuit missing from it gets the track page without a map. |
 
 F1 can change the live feed whenever it likes. If the feed stops answering,
 the board falls back to the schedule pages, and a feed that drops mid-session
@@ -238,6 +240,7 @@ All in `raceboard.env`; see `raceboard.env.example` for the full list.
 
 ## License
 
-Apache 2.0. The bitmap font is Adafruit's glcdfont (BSD). Formula 1, F1 and
+Apache 2.0. The bitmap font is Adafruit's glcdfont (BSD). The circuit
+outlines are Tomislav Bacinger's f1-circuits (MIT, `backend/circuits.LICENSE`). Formula 1, F1 and
 team names are trademarks of their owners; RaceBoard is not affiliated with
 or endorsed by Formula 1.

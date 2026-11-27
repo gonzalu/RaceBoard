@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import board, config, history, schedule
+from . import board, circuits, config, history, schedule
 from .alerts import Alerts
 from .livetiming import Feed
 
@@ -100,6 +100,7 @@ def api_board():
             "last": sched.get("last"),
             "quali": sched.get("quali"),
             "forecast": sched.get("forecast"),
+            "map": circuits.outline(nxt["lat"], nxt["long"]) if nxt and "lat" in nxt else None,
             "track": history.at_circuit(nxt["circuitId"]) if nxt and nxt.get("circuitId") else None,
             "today": {"date": today.strftime("%d %b").upper(),
                       "races": history.on_this_day(today.month, today.day)},
