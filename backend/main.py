@@ -100,7 +100,7 @@ def api_board():
             "last": sched.get("last"),
             "quali": sched.get("quali"),
             "forecast": sched.get("forecast"),
-            "map": circuits.outline(nxt["lat"], nxt["long"]) if nxt and "lat" in nxt else None,
+            "map": circuits.outline(nxt["lat"], nxt["long"], nxt.get("circuitId")) if nxt and "lat" in nxt else None,
             "track": history.at_circuit(nxt["circuitId"]) if nxt and nxt.get("circuitId") else None,
             "today": {"date": today.strftime("%d %b").upper(),
                       "races": history.on_this_day(today.month, today.day)},

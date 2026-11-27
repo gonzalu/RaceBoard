@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import httpx
 
-from . import config, history
+from . import circuits, config, history
 
 log = logging.getLogger("raceboard.schedule")
 
@@ -225,6 +225,12 @@ async def run():
                     await history.refresh(c)
                 except Exception as e:   # noqa: BLE001 - its pages just stay away
                     log.warning("history: %s: %s", type(e).__name__, e)
+                nxt = _data.get("next") or {}
+                if nxt.get("circuitId"):
+                    try:
+                        await circuits.refresh(c, nxt["circuitId"])
+                    except Exception as e:   # noqa: BLE001 - the geojson outline stands in
+                        log.warning("circuits: %s: %s", type(e).__name__, e)
                 await asyncio.sleep(REFRESH_S)
             except asyncio.CancelledError:
                 raise
