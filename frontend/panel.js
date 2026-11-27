@@ -72,7 +72,10 @@ function drawText(x, y, text, color, scale = 1) {
 const textW = (t, scale = 1) => String(t).length * CHAR_W * scale;
 const drawRight = (xr, y, t, c, s = 1) => drawText(xr - textW(t, s) + s, y, t, c, s);
 const drawCentered = (y, t, c, s = 1) => drawText(Math.round((W - textW(t, s)) / 2), y, t, c, s);
-const fit = (t, n) => String(t ?? '').slice(0, n);
+// Classic Chromecasts run a pre-2020 Chromium: no nullish or optional
+// chaining operators in this file, or the whole script fails to parse.
+const orIf = (v, d) => (v == null ? d : v);
+const fit = (t, n) => String(orIf(t, '')).slice(0, n);
 const hex = h => parseInt(h || 'ffffff', 16);
 
 /* ---------- canvas ---------- */
@@ -197,7 +200,7 @@ function drawTowerRow(t, r, i, field, index) {
   const y = ROW_Y0 + (i % ROWS) * ROW_PITCH;
   const dim = r.out || isOut(t, r);
   fillRect(x0, y, 2, 7, dim ? C.faint : hex(r.colour));
-  drawRight(x0 + 15, y, r.pos ?? '-', dim ? C.dim : C.text);
+  drawRight(x0 + 15, y, orIf(r.pos, '-'), dim ? C.dim : C.text);
   drawText(x0 + 22, y, r.tla, dim ? C.dim : (r.fastest ? C.purple : C.text));
   const [v, col] = rowValue(t, r, field, index);
   drawRight(x0 + 93, y, fit(v, 8), col);
@@ -215,7 +218,7 @@ function buildTimingFrame(data, fieldIdx, rcIdx) {
   drawText(0, 1, fit(`${t.meeting} ${t.session}`, 30), C.text);
   const stale = !data.feed.replay && data.feed.age_s != null && data.feed.age_s > CFG.STALE_S;
   if (stale) drawRight(W - 1, 1, 'NO FEED', C.red);
-  else if (t.type === 'Race' && t.laps) drawRight(W - 1, 1, `LAP ${t.lap ?? 0}/${t.laps}`, C.amber);
+  else if (t.type === 'Race' && t.laps) drawRight(W - 1, 1, `LAP ${orIf(t.lap, 0)}/${t.laps}`, C.amber);
   else if (remainingNow() != null) drawRight(W - 1, 1, fmtClock(remainingNow()), C.amber);
 
   // track status: green is just a word, anything else takes the whole band
@@ -318,7 +321,7 @@ function buildDriversFrame(idle) {
   idle.drivers.slice(0, ROWS * 2).forEach((d, i) => {
     const x0 = COL_X[i < ROWS ? 0 : 1], y = ROW_Y0 + (i % ROWS) * ROW_PITCH;
     fillRect(x0, y, 2, 7, hex(d.colour));
-    drawRight(x0 + 15, y, d.pos ?? '-', C.text);
+    drawRight(x0 + 15, y, orIf(d.pos, '-'), C.text);
     drawText(x0 + 22, y, d.code, C.text);
     drawRight(x0 + 93, y, d.points, C.amber);
   });
@@ -331,7 +334,7 @@ function buildTeamsFrame(idle) {
   idle.teams.slice(0, ROWS).forEach((t, i) => {
     const x0 = 40, y = ROW_Y0 + i * ROW_PITCH;
     fillRect(x0, y, 2, 7, hex(t.colour));
-    drawRight(x0 + 15, y, t.pos ?? '-', C.text);
+    drawRight(x0 + 15, y, orIf(t.pos, '-'), C.text);
     drawText(x0 + 22, y, fit(t.name, 14), C.text);
     drawRight(x0 + 175, y, t.points, C.amber);
   });

@@ -154,6 +154,11 @@ to it. Run the same command again to put the board back.
 feature. It works on classic Chromecast sticks and the Chromecast Ultra, but
 **not** on Chromecast with Google TV. Use Option B for those.
 
+Classic Chromecasts run an old built-in browser (roughly Chrome 70s) that
+never gets updated. RaceBoard's page is written to run on it. If you change
+the frontend, avoid newer JavaScript such as `??` and `?.`: one unsupported
+operator stops the whole script, and the TV shows an empty black panel.
+
 ### Option B: Raspberry Pi on HDMI
 
 The most robust option, with no casting involved. Any spare Pi running
