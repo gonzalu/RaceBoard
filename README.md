@@ -19,12 +19,23 @@ hardware uses, and every dot an individually lit LED.
 **No subscription and no account.** RaceBoard reads the same public live timing
 feed as the timing page on formula1.com, which needs no login for timing data.
 
+<div align="center">
+
+![RaceBoard cycling through its pages on a TV](img/demo.gif)
+
+*Between sessions on a kitchen TV, cast from a Chromecast: standings, the
+last result, the countdown to the next session and the track.*
+
+</div>
+
 | | |
 |---|---|
 | ![timing tower](img/timing.jpg) | ![next race](img/next.jpg) |
 | **During a session:** all 22 cars at once | **Between sessions:** countdown and weekend schedule |
 | ![driver standings](img/drivers.jpg) | ![last result](img/result.jpg) |
 | **Driver standings** (constructors too) | **The last race's result** |
+| ![track page](img/track.jpg) | ![countdown on a TV](img/tv.jpg) |
+| **The track:** map in sectors, history, forecast | **On a real TV,** cast from a Chromecast |
 
 ---
 
