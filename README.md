@@ -26,6 +26,8 @@ feed as the timing page on formula1.com, which needs no login for timing data.
 *Between sessions on a kitchen TV, cast from a Chromecast: standings, the
 last result, the countdown to the next session and the track.*
 
+**▶ [Watch it in 4K on YouTube](https://youtu.be/66y2keE_Q2s)**
+
 </div>
 
 | | |
