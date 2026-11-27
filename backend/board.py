@@ -18,6 +18,29 @@ TRACK = {
 FINISHED = {"Finished", "Finalised", "Ends"}
 RUNNING = {"Started", "Aborted"}
 
+# A red flag runs from SessionStatus "Aborted" until the session is "Started"
+# again, often through a minute of "Inactive" before the restart. TrackStatus
+# goes back to all clear well before then, so it can't be trusted alone.
+_last_active = {"status": None}
+
+
+def _suspended(status):
+    if status != "Inactive":
+        _last_active["status"] = status
+        return status == "Aborted"
+    return _last_active["status"] == "Aborted"
+
+
+def _remaining(clock, now):
+    """The session clock now. F1 sends it only when it starts, stops or jumps
+    (a session extended after a red flag, say) and says whether it's running;
+    in between it is run on from the moment it was sent, whatever the status."""
+    remaining = _hms(clock.get("Remaining"))
+    at = parse_utc(clock.get("Utc"))
+    if remaining is None or not clock.get("Extrapolating") or not at:
+        return remaining
+    return max(0, remaining - int((now - at).total_seconds()))
+
 
 def _list(v):
     """Feed lists sometimes arrive as index-keyed dicts; read both the same way."""
@@ -158,18 +181,18 @@ def build(feed):
     rows.sort(key=lambda r: (r["pos"] is None, r["pos"] or 99))
 
     ts = st.get("TrackStatus") or {}
-    track_text, track_colour = TRACK.get(str(ts.get("Status")), ("", "green"))
+    code = str(ts.get("Status") or "")
+    track_text, track_colour = TRACK.get(code, ("", "green"))
+    suspended = _suspended(status)
     if status in FINISHED:
         track_text, track_colour = "CHEQUERED FLAG", "white"
+    elif suspended:
+        track_text, track_colour = TRACK["5"]
+        code = "5"
     elif status == "Inactive":
         track_text, track_colour = "NOT STARTED", "white"
 
-    clock = st.get("ExtrapolatedClock") or {}
-    remaining = _hms(clock.get("Remaining"))
-    if remaining is not None and clock.get("Extrapolating") and status in RUNNING:
-        at = parse_utc(clock.get("Utc"))
-        if at:
-            remaining = max(0, remaining - int((feed.now() - at).total_seconds()))
+    remaining = _remaining(st.get("ExtrapolatedClock") or {}, feed.now())
 
     msgs = _list((st.get("RaceControlMessages") or {}).get("Messages"))
     rc = [{"text": m.get("Message", ""), "flag": m.get("Flag"), "cat": m.get("Category"),
@@ -182,7 +205,7 @@ def build(feed):
         "session": _session_label(info, part),
         "type": typ,
         "status": status,
-        "track": {"text": track_text, "colour": track_colour, "code": str(ts.get("Status") or "")},
+        "track": {"text": track_text, "colour": track_colour, "code": code},
         "lap": lap.get("CurrentLap"), "laps": lap.get("TotalLaps"),
         "remaining_s": remaining,
         "rows": rows,

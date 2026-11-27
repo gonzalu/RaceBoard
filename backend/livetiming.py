@@ -286,10 +286,9 @@ class Feed:
                 prev_t = m["t"]
                 self._apply(m["topic"], m["data"])
                 self.last_rx = time.monotonic()
-                if m["topic"] == "Heartbeat":
-                    hb = parse_utc((m["data"] or {}).get("Utc"))
-                    if hb:
-                        self._replay_clock = (hb, time.monotonic())
+                # every line carries the moment it arrived, so the replay's
+                # clock follows the recording even with no heartbeats in it
+                self._replay_clock = (datetime.fromtimestamp(m["t"], timezone.utc), time.monotonic())
         log.info("replay finished; holding the final state")
         while True:
             self.last_rx = time.monotonic()
