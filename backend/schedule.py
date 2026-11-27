@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import httpx
 
-from . import circuits, config, history
+from . import circuits, config, history, lore
 
 log = logging.getLogger("raceboard.schedule")
 
@@ -225,6 +225,10 @@ async def run():
                     await history.refresh(c)
                 except Exception as e:   # noqa: BLE001 - its pages just stay away
                     log.warning("history: %s: %s", type(e).__name__, e)
+                try:
+                    await lore.refresh(c)
+                except Exception as e:   # noqa: BLE001 - the day's pages show what's kept
+                    log.warning("lore: %s: %s", type(e).__name__, e)
                 nxt = _data.get("next") or {}
                 if nxt.get("circuitId"):
                     try:

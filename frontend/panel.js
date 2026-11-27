@@ -305,7 +305,8 @@ function idlePages(idle) {
   if (idle.drivers.length) pages.push('drivers');
   if (idle.teams.length) pages.push('teams');
   if (idle.last) pages.push('last');
-  if (idle.today && idle.today.races.length) pages.push('today');
+  if (idle.today && idle.today.items && idle.today.items.length) pages.push('today');
+  if (idle.today && idle.today.story) pages.push('story');
   return pages;
 }
 
@@ -507,17 +508,50 @@ function buildQualiFrame(idle) {
   });
 }
 
+const TODAY_KIND = {
+  title: ['TITLE', C.amber], first: ['1ST WIN', C.green], win: ['WIN', C.cyan], born: ['BORN', C.dim],
+};
+
 function buildTodayFrame(idle) {
-  drawText(0, 1, 'ON THIS DAY', C.text);
-  drawRight(W - 1, 1, idle.today.date, C.dim);
+  const t = idle.today;
+  drawText(0, 1, t.title, C.text);
+  drawRight(W - 1, 1, t.date, C.dim);
   hLine(21, C.faint);
-  idle.today.races.slice(0, ROWS).forEach((r, i) => {
+  t.items.slice(0, ROWS).forEach((r, i) => {
     const y = ROW_Y0 + i * ROW_PITCH;
-    drawText(0, y, r.season, C.dim);
-    drawText(30, y, fit(r.name.toUpperCase().replace(' GRAND PRIX', ' GP'), 23), C.text);
-    fillRect(W - 76, y, 2, 7, hex(TEAM_COLOURS[r.team]));
-    drawRight(W - 1, y, fit(r.driver, 11), C.amber);
+    const k = TODAY_KIND[r.kind] || TODAY_KIND.win;
+    drawText(0, y, r.year, C.dim);
+    drawText(30, y, k[0], k[1]);
+    if (TEAM_COLOURS[r.team]) fillRect(74, y, 2, 7, hex(TEAM_COLOURS[r.team]));
+    const x = 80, room = Math.floor((W - x) / CHAR_W);
+    const who = fit(r.who, room);
+    drawText(x, y, who, C.text);
+    const left = room - who.length - 1;
+    if (r.what && left > 3) drawText(x + textW(who) + CHAR_W, y, fit(r.what, left), r.kind === 'born' ? C.amber : C.dim);
   });
+}
+
+// word-wrap to whole lines of n characters
+function wrapText(text, n) {
+  const lines = [];
+  let line = '';
+  for (const word of String(text).split(' ')) {
+    if (line && line.length + 1 + word.length > n) { lines.push(line); line = ''; }
+    line = line ? `${line} ${word}` : word;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function buildStoryFrame(idle) {
+  const st = idle.today.story;
+  drawText(0, 1, fit(st.head, 30), C.text);
+  drawRight(W - 1, 1, idle.today.title === 'ON THIS DAY' ? idle.today.date : 'THIS WEEK', C.dim);
+  hLine(21, C.faint);
+  const lines = wrapText(st.text.toUpperCase(), Math.floor(W / CHAR_W));
+  const max = 12;
+  if (lines.length > max) { lines.length = max; lines[max - 1] = fit(lines[max - 1], 39) + '...'; }
+  lines.forEach((l, i) => drawText(0, 25 + i * 10, l, C.text));
 }
 
 function buildIdleFrame(idle, pageIdx) {
@@ -531,6 +565,7 @@ function buildIdleFrame(idle, pageIdx) {
   else if (page === 'track') buildTrackFrame(idle);
   else if (page === 'quali') buildQualiFrame(idle);
   else if (page === 'today') buildTodayFrame(idle);
+  else if (page === 'story') buildStoryFrame(idle);
   else buildLastFrame(idle);
 }
 
@@ -667,7 +702,9 @@ async function poll() {
 function tick() {
   const now = Date.now();
   if (now - lastField >= CFG.FIELD_MS) { fieldIdx++; lastField = now; }
-  if (now - lastPage >= CFG.PAGE_MS) { pageIdx++; lastPage = now; }
+  const pages = data && data.mode === 'idle' && data.idle ? idlePages(data.idle) : [];
+  const hold = pages[pageIdx % (pages.length || 1)] === 'story' ? 2 : 1;   // a paragraph takes longer to read
+  if (now - lastPage >= CFG.PAGE_MS * hold) { pageIdx++; lastPage = now; }
   if (now - lastRc >= CFG.RC_MS) { rcIdx++; lastRc = now; }
   paint();
 }

@@ -84,15 +84,18 @@ a false one.
 - driver and constructor standings, with places gained or lost at the last
   round
 - the last race's result
-- on this day: Grands Prix held on today's date in past years, and who won
+- on this day: Grands Prix won on today's date, first wins, titles clinched
+  (from 1991) and drivers born on it, then the day's main story in a
+  paragraph from Wikipedia. On a quiet day it takes in the week around it
 
 ## Where the data comes from
 
 | What | Source | Notes |
 |---|---|---|
 | Live timing | `livetiming.formula1.com/signalrcore` | F1's own feed. Unofficial and undocumented; no login needed for timing. Car telemetry and GPS need an F1 TV login, so RaceBoard doesn't use them. |
-| Schedule, standings, results, history | [Jolpica](https://github.com/jolpica/jolpica-f1) (`api.jolpi.ca`) | The successor to the Ergast API. Free, no key. Every winner since 1950 is fetched once and kept in `data/history.json`, refreshed weekly. |
+| Schedule, standings, results, history | [Jolpica](https://github.com/jolpica/jolpica-f1) (`api.jolpi.ca`) | The successor to the Ergast API. Free, no key. Every winner since 1950 is fetched once and kept in `data/history.json`, refreshed weekly. Where each title was clinched, and every driver's birthday, are worked out once (a few minutes of paced requests the first time) and kept in `data/lore.json`. |
 | Race weekend forecast | [Open-Meteo](https://open-meteo.com/) | Free, no key. |
+| The day's story | [Wikipedia](https://en.wikipedia.org/) | The summary of the race or driver, through its REST API. Free, no key. Kept in `data/lore.json`. |
 | Track maps | [MultiViewer](https://multiviewer.app/) (`api.multiviewer.app`) | F1's own track outline and the rotation F1 TV uses, as the live timing apps draw them. Free, no key. Kept in `data/circuits/`, refreshed monthly. |
 | Track lengths, and maps MultiViewer lacks | [bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) | MIT licence. A copy is kept in `backend/circuits.geojson`, so no download is needed. A circuit missing from both gets the track page without a map. |
 

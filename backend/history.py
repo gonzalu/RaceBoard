@@ -19,6 +19,7 @@ log = logging.getLogger("raceboard.history")
 CACHE = Path(__file__).resolve().parent.parent / "data" / "history.json"
 MAX_AGE_S = 7 * 24 * 3600
 PAGE = 100
+VERSION = 2   # bump when the fields kept per race change, to fetch again
 
 _races = []
 
@@ -31,6 +32,8 @@ def _load():
     global _races
     try:
         data = json.loads(CACHE.read_text(encoding="utf-8"))
+        if data.get("v") != VERSION:
+            return 0
         _races = data["races"]
         return data.get("fetched", 0)
     except (OSError, ValueError, KeyError):
@@ -62,12 +65,15 @@ async def refresh(c):
                 "code": _code(w["Driver"]),
                 "driver": w["Driver"]["familyName"],
                 "team": w["Constructor"]["constructorId"],
+                "driverId": w["Driver"]["driverId"],
+                "points": float(w.get("points") or 0),
+                "url": race.get("url"),
             }
         offset += PAGE
         await asyncio.sleep(1)   # Jolpica asks for a few requests a second at most
     _races = sorted(races.values(), key=lambda x: (x["season"], x["round"]))
     CACHE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE.write_text(json.dumps({"fetched": time.time(), "races": _races}), encoding="utf-8")
+    CACHE.write_text(json.dumps({"v": VERSION, "fetched": time.time(), "races": _races}), encoding="utf-8")
     log.info("history: %d races", len(_races))
 
 
@@ -86,9 +92,6 @@ def at_circuit(circuit_id):
     }
 
 
-def on_this_day(month, day):
-    """Races held on this date in past years, newest first."""
-    md = f"-{month:02d}-{day:02d}"
-    hits = [r for r in _races if r["date"].endswith(md)]
-    return [{"season": r["season"], "name": r["name"], "driver": r["driver"].upper(),
-             "team": r["team"]} for r in hits[::-1]]
+def races():
+    """Every Grand Prix winner, oldest first."""
+    return _races
