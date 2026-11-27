@@ -382,14 +382,14 @@ function buildLastFrame(idle) {
   });
 }
 
-function drawLineSeg(x0, y0, x1, y1, color) {
-  // Bresenham: one LED per step, no gaps
+function drawLineSeg(x0, y0, x1, y1, color, thick) {
+  // Bresenham: one LED per step, no gaps; thick draws a 2x2 block per step
   x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
   const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
   const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
   let err = dx + dy;
   for (;;) {
-    setPx(x0, y0, color);
+    if (thick) fillRect(x0, y0, 2, 2, color); else setPx(x0, y0, color);
     if (x0 === x1 && y0 === y1) return;
     const e2 = 2 * err;
     if (e2 >= dy) { err += dy; x0 += sx; }
@@ -397,14 +397,42 @@ function drawLineSeg(x0, y0, x1, y1, color) {
   }
 }
 
-// the outline arrives scaled into a unit square; fit it to the box, centred
-function drawMap(m, bx, by, bw, bh, color) {
-  const k = Math.min((bw - 1) / m.w, (bh - 1) / m.h);
-  const ox = bx + Math.round((bw - 1 - m.w * k) / 2), oy = by + Math.round((bh - 1 - m.h * k) / 2);
+// Sector colours as the TV graphics use them
+const SECTORS = [C.red, 0x2a7fff, C.yellow];
+
+// The outline arrives scaled into a unit square, starting at the start/finish
+// line in the direction of travel. Fit it to the box, centred, two LEDs thick,
+// and colour it in thirds by distance: the feed doesn't say where the real
+// sector lines are, so these are close to them rather than exact.
+function drawMap(m, bx, by, bw, bh) {
+  const k = Math.min((bw - 2) / m.w, (bh - 2) / m.h);
+  const ox = bx + Math.round((bw - 2 - m.w * k) / 2), oy = by + Math.round((bh - 2 - m.h * k) / 2);
   const pts = m.points.map(p => [ox + p[0] * k, oy + p[1] * k]);
-  for (let i = 0; i < pts.length; i++) {
-    const a = pts[i], b = pts[(i + 1) % pts.length];
-    drawLineSeg(a[0], a[1], b[0], b[1], color);
+  const n = pts.length;
+  const seg = [];
+  let total = 0;
+  for (let i = 0; i < n; i++) {
+    const a = pts[i], b = pts[(i + 1) % n];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    seg.push(len);
+    total += len;
+  }
+  let run = 0;
+  for (let i = 0; i < n; i++) {
+    let a = pts[i], from = run;
+    const b = pts[(i + 1) % n], to = run + seg[i];
+    // split the segment wherever it crosses into the next sector
+    for (let s = 1; s <= 2; s++) {
+      const cut = total * s / 3;
+      if (from < cut && to > cut) {
+        const t = (cut - run) / seg[i];
+        const c = [pts[i][0] + (b[0] - pts[i][0]) * t, pts[i][1] + (b[1] - pts[i][1]) * t];
+        drawLineSeg(a[0], a[1], c[0], c[1], SECTORS[s - 1], true);
+        a = c; from = cut;
+      }
+    }
+    drawLineSeg(a[0], a[1], b[0], b[1], SECTORS[Math.min(2, Math.floor(from / total * 3))], true);
+    run = to;
   }
 }
 
@@ -418,7 +446,7 @@ function buildTrackFrame(idle) {
 
   if (m) {
     // map on the left, the track's history down the right
-    drawMap(m, 2, 25, 146, bottom - 28, C.cyan);
+    drawMap(m, 2, 25, 146, bottom - 28);
     const x = 156;
     if (h) {
       drawText(x, 26, `FIRST GP ${h.first}`, C.dim);

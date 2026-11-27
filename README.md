@@ -63,8 +63,9 @@ a false one.
 
 - the next Grand Prix, with a countdown to its next session and the weekend's
   schedule in your time zone
-- the track: a map of the circuit and its length, when it first held a
-  Grand Prix, who has won there most, the last winners, and the weekend
+- the track: a map of the circuit in its three sectors (split evenly by
+  distance from the start line, so close to the real ones rather than exact)
+  and its length, when it first held a Grand Prix, who has won there most, the last winners, and the weekend
   forecast once it's within two weeks
 - qualifying, from when it's run until the race
 - driver and constructor standings, with places gained or lost at the last
