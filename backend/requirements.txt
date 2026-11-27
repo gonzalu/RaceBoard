@@ -1,6 +1,6 @@
 fastapi>=0.111
-# Plain uvicorn, not uvicorn[standard], same as FlightBoard: the extras pull in
-# uvloop, which has no armv7l wheel and builds from source on a Pi.
+# Plain uvicorn, not uvicorn[standard]: the extras pull in uvloop, which has
+# no armv7l wheel and builds from source on a Pi.
 uvicorn>=0.29
 httpx>=0.27
 # The live timing hub is a WebSocket. Pure Python, wheels for every platform.

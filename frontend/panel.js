@@ -1,9 +1,9 @@
 /*
  * RaceBoard: a virtual LED matrix timing board.
  *
- * Built the same way as FlightBoard's panel: a framebuffer of individually
- * addressed LEDs, text drawn from the Adafruit GFX 5x7 bitmap font, and every
- * lit LED painted as a physical dot. No styled HTML text anywhere.
+ * A framebuffer of individually addressed LEDs, text drawn from the Adafruit
+ * GFX 5x7 bitmap font, and every lit LED painted as a physical dot. No styled
+ * HTML text anywhere.
  *
  * 256x144 is 16:9, so it fills a TV, and it is the smallest size that fits the
  * whole 22-car field at once: two columns of eleven, no paging during a race.

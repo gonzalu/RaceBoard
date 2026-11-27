@@ -12,9 +12,9 @@ pit stops, flags and race control messages, updating as it happens. Between
 sessions it counts down to the next one and cycles through the standings and
 the last result.
 
-It's FlightBoard's sibling and works the same way: an emulated LED panel, a
-real framebuffer and the Adafruit GFX bitmap font, every dot an individually
-lit LED.
+It isn't styled to look like an LED panel, it emulates one: a real
+framebuffer, text drawn from the Adafruit GFX bitmap font that LED matrix
+hardware uses, and every dot an individually lit LED.
 
 **No subscription and no account.** RaceBoard reads the same public live timing
 feed as the timing page on formula1.com, which needs no login for timing data.
@@ -67,7 +67,9 @@ seconds. Start around 30 and adjust until the board moves just after the TV.
 
 ## Install
 
-Same as FlightBoard: Python 3.10+, a virtualenv and one systemd unit.
+You need a Linux machine that stays on (a Raspberry Pi is plenty) with
+Python 3.10 or newer and git. RaceBoard runs in its own virtualenv as one
+systemd service.
 
 ```bash
 git clone https://github.com/gonzalu/RaceBoard.git ~/RaceBoard
@@ -119,13 +121,59 @@ board reload themselves.
 
 ## Getting it onto a TV
 
-Exactly as with FlightBoard: cast `http://<server IP>:8093/` with
-[catt](https://github.com/skorokithakis/catt) (`catt -d "Living Room TV" cast_site http://10.0.1.x:8093/`),
-or open it full screen in a browser on a Pi. Use the IP address, not a name:
-Chromecasts ignore your router's DNS.
+### Option A: Chromecast
 
-The page reloads itself when the frontend changes on the server, so a cast TV
-picks up updates without being re-cast.
+The Chromecast loads the page and renders it itself, so no computer has to
+stay awake driving the picture. [catt](https://github.com/skorokithakis/catt)
+does the casting. Install it in RaceBoard's virtualenv and find your
+Chromecast's exact name:
+
+```bash
+.venv/bin/pip install catt
+.venv/bin/catt scan
+```
+
+Then cast the board to it, using the name exactly as `catt scan` printed it:
+
+```bash
+.venv/bin/catt -d "YOUR-CHROMECAST" cast_site "http://YOUR-SERVER-IP:8093/"
+```
+
+> **Use the IP address, not a hostname.** A Chromecast uses Google's DNS
+> servers and ignores the one your router hands out, so a name that resolves
+> everywhere else on your network fails on the stick. If the server's address
+> can change, give it a DHCP reservation in your router.
+
+> `catt` prints *Casting…* as soon as the Chromecast accepts the URL, before
+> it has tried to load anything. Look at the TV to be sure.
+
+The cast lasts until the Chromecast reboots or someone casts something else
+to it. Run the same command again to put the board back.
+
+`cast_site` uses the DashCast receiver, which isn't a documented Google
+feature. It works on classic Chromecast sticks and the Chromecast Ultra, but
+**not** on Chromecast with Google TV. Use Option B for those.
+
+### Option B: Raspberry Pi on HDMI
+
+The most robust option, with no casting involved. Any spare Pi running
+Raspberry Pi OS Lite, with Chromium in kiosk mode:
+
+```bash
+sudo apt install chromium-browser cage
+cage -- chromium-browser --kiosk --noerrdialogs --disable-infobars \
+     --check-for-update-interval=31536000 http://YOUR-SERVER-IP:8093/
+```
+
+Make that a systemd service to start it at boot. `cec-utils` can switch the TV
+on and off on a schedule over HDMI-CEC.
+
+### Option C: a browser
+
+Open `http://YOUR-SERVER-IP:8093/` and press F11.
+
+Whichever you use, the page reloads itself when RaceBoard is updated on the
+server, so a TV picks up changes without being re-cast.
 
 ## Recording and replay
 
