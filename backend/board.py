@@ -84,7 +84,8 @@ def mode_for(feed):
         return "idle"
     if status not in FINISHED and start - timedelta(minutes=config.PRE_SESSION_MIN) <= now <= end:
         return "timing"
-    if status in FINISHED and now <= end + timedelta(minutes=config.RESULT_HOLD_MIN):
+    hold = config.RESULT_HOLD_MIN if info.get("Type") == "Race" else config.PRACTICE_HOLD_MIN
+    if status in FINISHED and now <= end + timedelta(minutes=hold):
         return "timing"
     return "idle"
 

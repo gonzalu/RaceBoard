@@ -16,8 +16,10 @@ def _float(name, default):
 DELAY_S = _float("RACEBOARD_DELAY_S", 0)
 
 # How long after a session ends the board keeps its final classification up
-# before going back to the between-sessions pages.
+# before going back to the between-sessions pages: races (and sprints), then
+# practice and qualifying, whose results matter less once they're over.
 RESULT_HOLD_MIN = _float("RACEBOARD_RESULT_HOLD_MIN", 90)
+PRACTICE_HOLD_MIN = _float("RACEBOARD_PRACTICE_HOLD_MIN", 30)
 
 # How early before a session's scheduled start the board switches to timing.
 PRE_SESSION_MIN = _float("RACEBOARD_PRE_SESSION_MIN", 15)

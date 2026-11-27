@@ -31,7 +31,7 @@ feed as the timing page on formula1.com, which needs no login for timing data.
 ## What it shows
 
 **During a session** (from 15 minutes before it starts until 90 minutes after
-it ends):
+a race ends, or 30 minutes after practice or qualifying):
 
 - the running order in two columns of eleven, each car with its team colour
 - a value column that cycles every 8 s: interval, gap to the leader, last
@@ -231,7 +231,8 @@ All in `raceboard.env`; see `raceboard.env.example` for the full list.
 |---|---|---|
 | `RACEBOARD_DELAY_S` | `0` | Spoiler delay, seconds |
 | `RACEBOARD_TZ` | server's zone | Time zone for session times, e.g. `America/New_York` |
-| `RACEBOARD_RESULT_HOLD_MIN` | `90` | Minutes a finished session's classification stays up |
+| `RACEBOARD_RESULT_HOLD_MIN` | `90` | Minutes a finished race or sprint's classification stays up |
+| `RACEBOARD_PRACTICE_HOLD_MIN` | `30` | The same for practice and qualifying |
 | `RACEBOARD_PRE_SESSION_MIN` | `15` | Minutes before a session the tower appears |
 | `RACEBOARD_ALERTS` | `all` | Full-screen alerts: any of `overtake,battle,flag,chequered`, or `none` |
 | `RACEBOARD_RECORD` | `1` | Record live sessions to `data/recordings/` |
