@@ -18,6 +18,8 @@ const CFG = {
   PAGE_MS: 12000,     // between sessions: how long each page holds
   RC_MS: 4000,        // a long race control message pages in chunks this fast
   STALE_S: 90,        // feed silent this long during a session: say so
+  ALERT_MS: 6000,     // how long a full-screen alert holds
+  ALERT_QUEUE: 3,     // alerts waiting beyond this are dropped, oldest first
 };
 
 const C = {
@@ -77,6 +79,22 @@ const drawCentered = (y, t, c, s = 1) => drawText(Math.round((W - textW(t, s)) /
 const orIf = (v, d) => (v == null ? d : v);
 const fit = (t, n) => String(orIf(t, '')).slice(0, n);
 const hex = h => parseInt(h || 'ffffff', 16);
+
+// a 5-wide, 3-high triangle, up or down, centred on a text line
+function drawArrow(x, y, up, color) {
+  for (let j = 0; j < 3; j++) {
+    const row = up ? j : 2 - j;
+    for (let i = 2 - j; i <= 2 + j; i++) setPx(x + i, y + 2 + row, color);
+  }
+}
+
+// places gained or lost: a green up arrow, a red down arrow, or nothing
+function drawChange(xr, y, n) {
+  if (!n) return;
+  const t = String(Math.abs(n));
+  drawRight(xr, y, t, n > 0 ? C.green : C.red);
+  drawArrow(xr - textW(t) - 5, y, n > 0, n > 0 ? C.green : C.red);
+}
 
 /* ---------- canvas ---------- */
 
@@ -173,7 +191,7 @@ const ROW_Y0 = 23, ROW_PITCH = 10, ROWS = 11, COL_X = [0, 129];
 
 function timingFields(t) {
   return t.type === 'Race'
-    ? [['interval', 'INTERVAL'], ['gap', 'GAP'], ['last', 'LAST LAP']]
+    ? [['interval', 'INTERVAL'], ['gap', 'GAP'], ['last', 'LAST LAP'], ['gained', 'SINCE START']]
     : [['best', 'BEST LAP'], ['gap', 'GAP']];
 }
 
@@ -186,6 +204,11 @@ function rowValue(t, r, field, index) {
   if (r.stopped) return ['STOPPED', C.red];
   if (r.in_pit) return ['IN PIT', C.cyan];
   if (r.pit_out) return ['PIT EXIT', C.cyan];
+  if (field === 'gained') {
+    const g = r.gained;
+    if (g == null) return [r.grid ? '' : 'PIT START', C.dim];
+    return g > 0 ? [`+${g}`, C.green] : g < 0 ? [`${g}`, C.red] : ['=', C.dim];
+  }
   let v = r[field] || '';
   if (!v && index === 0) {
     // the leader has no gap or interval to show
@@ -277,9 +300,12 @@ function chunk(text, n) {
 function idlePages(idle) {
   const pages = [];
   if (idle.next) pages.push('next');
+  if (idle.next && (idle.track || idle.forecast)) pages.push('track');
+  if (idle.quali && idle.quali.length) pages.push('quali');
   if (idle.drivers.length) pages.push('drivers');
   if (idle.teams.length) pages.push('teams');
   if (idle.last) pages.push('last');
+  if (idle.today && idle.today.races.length) pages.push('today');
   return pages;
 }
 
@@ -324,6 +350,7 @@ function buildDriversFrame(idle) {
     drawRight(x0 + 15, y, orIf(d.pos, '-'), C.text);
     drawText(x0 + 22, y, d.code, C.text);
     drawRight(x0 + 93, y, d.points, C.amber);
+    drawChange(x0 + 117, y, d.change);
   });
 }
 
@@ -337,6 +364,7 @@ function buildTeamsFrame(idle) {
     drawRight(x0 + 15, y, orIf(t.pos, '-'), C.text);
     drawText(x0 + 22, y, fit(t.name, 14), C.text);
     drawRight(x0 + 175, y, t.points, C.amber);
+    drawChange(x0 + 205, y, t.change);
   });
 }
 
@@ -354,6 +382,66 @@ function buildLastFrame(idle) {
   });
 }
 
+function buildTrackFrame(idle) {
+  const n = idle.next, h = idle.track;
+  drawText(0, 1, fit(`${n.locality}, ${n.country}`.toUpperCase(), 34), C.dim);
+  drawRight(W - 1, 1, 'THE TRACK', C.dim);
+  drawCentered(14, fit(n.circuit.toUpperCase(), 42), C.text);
+  if (h) {
+    drawCentered(27, h.count > 1 ? `FIRST GP HERE ${h.first}   ${h.count} RACES` : `FIRST GP HERE ${h.first}`, C.dim);
+    if (h.most_wins) drawCentered(39, `MOST WINS  ${h.most_wins.driver} ${h.most_wins.wins}`, C.amber);
+    hLine(51, C.faint);
+    drawCentered(56, 'RECENT WINNERS', C.dim);
+    h.recent.forEach((r, i) => {
+      const y = 68 + i * 10;
+      drawText(94, y, r.season, C.dim);
+      fillRect(124, y, 2, 7, hex(TEAM_COLOURS[r.team]));
+      drawText(130, y, r.code, C.text);
+    });
+  } else {
+    drawCentered(56, `FIRST GP HERE`, C.amber, 2);
+  }
+  if (idle.forecast && idle.forecast.length) {
+    hLine(121, C.faint);
+    const parts = idle.forecast.map(f => `${f.day} ${orIf(f.high, '--')}C ${orIf(f.rain, '--')}%`);
+    drawCentered(127, parts.join('   '), C.text);
+  }
+}
+
+// Jolpica's team ids to livery colours, for the history pages; the feed and
+// the standings carry their own
+const TEAM_COLOURS = {
+  mercedes: '00D7B6', ferrari: 'ED1131', red_bull: '4781D7', mclaren: 'F47600',
+  rb: '6C98FF', alpine: '00A1E8', haas: '9C9FA2', audi: 'F50537', sauber: 'F50537',
+  williams: '1868DB', aston_martin: '229971', cadillac: '909090',
+};
+
+function buildQualiFrame(idle) {
+  drawText(0, 1, fit(idle.next.name.toUpperCase().replace(' GRAND PRIX', ' GP'), 26), C.text);
+  drawRight(W - 1, 1, 'QUALIFYING', C.dim);
+  hLine(21, C.faint);
+  idle.quali.slice(0, ROWS * 2).forEach((q, i) => {
+    const x0 = COL_X[i < ROWS ? 0 : 1], y = ROW_Y0 + (i % ROWS) * ROW_PITCH;
+    fillRect(x0, y, 2, 7, hex(q.colour));
+    drawRight(x0 + 15, y, orIf(q.pos, '-'), C.text);
+    drawText(x0 + 22, y, q.code, i === 0 ? C.purple : C.text);
+    drawRight(x0 + 117, y, fit(q.time, 9), i === 0 ? C.purple : C.dim);
+  });
+}
+
+function buildTodayFrame(idle) {
+  drawText(0, 1, 'ON THIS DAY', C.text);
+  drawRight(W - 1, 1, idle.today.date, C.dim);
+  hLine(21, C.faint);
+  idle.today.races.slice(0, ROWS).forEach((r, i) => {
+    const y = ROW_Y0 + i * ROW_PITCH;
+    drawText(0, y, r.season, C.dim);
+    drawText(30, y, fit(r.name.toUpperCase().replace(' GRAND PRIX', ' GP'), 23), C.text);
+    fillRect(W - 76, y, 2, 7, hex(TEAM_COLOURS[r.team]));
+    drawRight(W - 1, y, fit(r.driver, 11), C.amber);
+  });
+}
+
 function buildIdleFrame(idle, pageIdx) {
   clear();
   const pages = idlePages(idle);
@@ -362,6 +450,9 @@ function buildIdleFrame(idle, pageIdx) {
   if (page === 'next') buildNextFrame(idle.next);
   else if (page === 'drivers') buildDriversFrame(idle);
   else if (page === 'teams') buildTeamsFrame(idle);
+  else if (page === 'track') buildTrackFrame(idle);
+  else if (page === 'quali') buildQualiFrame(idle);
+  else if (page === 'today') buildTodayFrame(idle);
   else buildLastFrame(idle);
 }
 
@@ -369,6 +460,92 @@ function buildMessageFrame(lines) {
   clear();
   const top = Math.round((H - lines.length * 20) / 2);
   lines.forEach((l, i) => drawCentered(top + i * 20, l, i ? C.dim : C.text, i ? 1 : 2));
+}
+
+/* ---------- full-screen alerts ---------- */
+
+const FLAG_ALERT = {
+  sc: { lines: ['SAFETY CAR'], colour: C.yellow },
+  vsc: { lines: ['VIRTUAL', 'SAFETY CAR'], colour: C.yellow },
+  red: { lines: ['RED FLAG'], colour: C.red, note: 'SESSION STOPPED' },
+  green: { lines: ['GREEN FLAG'], colour: C.green, note: 'TRACK CLEAR' },
+};
+
+// solid bands top and bottom: as loud as a full fill, a third of the LEDs
+function bands(colour) {
+  fillRect(0, 0, W, 22, colour);
+  fillRect(0, H - 22, W, 22, colour);
+}
+
+function chequer(y0, h) {
+  for (let y = y0; y < y0 + h; y++) {
+    for (let x = 0; x < W; x++) if (((x >> 3) + ((y - y0) >> 3)) % 2 === 0) setPx(x, y, C.white);
+  }
+}
+
+// draw parts of one line in their own colours, centred as a whole
+function drawLine(y, parts, scale = 1) {
+  let x = Math.round((W - parts.reduce((w, p) => w + textW(p[0], scale), 0)) / 2);
+  for (const [t, c] of parts) x += drawText(x, y, t, c, scale);
+}
+
+function buildAlertFrame(e) {
+  clear();
+  if (e.kind === 'overtake') {
+    fillRect(0, 0, W, 20, C.amber);
+    drawCentered(3, 'OVERTAKE', C.black, 2);
+    drawCentered(34, e.tla, hex(e.colour), 4);
+    drawCentered(76, `P${e.pos}`, C.text, 2);
+    drawLine(102, [['PASSES ', C.dim], [e.passed, hex(e.passed_colour)]], 2);
+    if (e.lap) drawCentered(134, `LAP ${e.lap}`, C.dim);
+  } else if (e.kind === 'battle') {
+    fillRect(0, 0, W, 20, C.cyan);
+    drawCentered(3, `BATTLE FOR P${e.pos}`, C.black, 2);
+    const y = 42;
+    drawText(Math.round(64 - textW(e.ahead, 4) / 2), y, e.ahead, hex(e.ahead_colour), 4);
+    drawText(Math.round(192 - textW(e.behind, 4) / 2), y, e.behind, hex(e.behind_colour), 4);
+    drawCentered(y + 9, 'VS', C.dim, 2);
+    drawCentered(90, `${Number(e.gap).toFixed(1)}S`, C.amber, 3);
+    if (e.lap) drawCentered(124, `LAP ${e.lap}`, C.dim);
+  } else if (e.kind === 'flag') {
+    const f = FLAG_ALERT[e.flag] || FLAG_ALERT.green;
+    bands(f.colour);
+    const top = f.lines.length === 1 ? 52 : 38;
+    f.lines.forEach((l, i) => drawCentered(top + i * 32, l, f.colour, 3));
+    if (f.note) drawCentered(98, f.note, C.text);
+  } else if (e.kind === 'chequered') {
+    chequer(0, 24);
+    chequer(H - 24, 24);
+    drawCentered(36, 'CHEQUERED FLAG', C.text, 2);
+    if (e.tla) {
+      if (e.race) drawLine(68, [[e.tla, hex(e.colour)], [' WINS', C.text]], 3);
+      else drawLine(72, [['P1  ', C.dim], [e.tla, hex(e.colour)]], 3);
+    }
+  }
+}
+
+let alertSeen = null;          // highest alert id already taken
+const alertQueue = [];
+let alertShown = null, alertUntil = 0;
+
+function takeAlerts(list) {
+  const ids = (list || []).map(e => e.id);
+  // a screen that just opened shouldn't replay the last two minutes
+  if (alertSeen === null) { alertSeen = ids.length ? Math.max(...ids) : 0; return; }
+  for (const e of list || []) {
+    if (e.id <= alertSeen) continue;
+    alertSeen = e.id;
+    alertQueue.push(e);
+  }
+  while (alertQueue.length > CFG.ALERT_QUEUE) alertQueue.shift();
+}
+
+function currentAlert() {
+  const now = Date.now();
+  if (alertShown && now < alertUntil) return alertShown;
+  alertShown = alertQueue.shift() || null;
+  alertUntil = now + CFG.ALERT_MS;
+  return alertShown;
 }
 
 /* ---------- data + cycling ---------- */
@@ -400,6 +577,7 @@ async function poll() {
     }
     data = next;
     receivedAt = Date.now();
+    takeAlerts(next.alerts);
     linkDown = false;
     if (data.mode !== lastMode) { lastMode = data.mode; pageIdx = 0; fieldIdx = 0; }
   } catch (e) {
@@ -420,6 +598,7 @@ function paint() {
   if (linkDown && !data) buildMessageFrame(['NO LINK', 'backend down']);
   else if (!data) buildMessageFrame(['...']);
   else if (linkDown) buildMessageFrame(['NO LINK', 'backend down']);
+  else if (currentAlert()) buildAlertFrame(alertShown);
   else if (data.mode === 'timing' && data.timing) buildTimingFrame(data, fieldIdx, rcIdx);
   else buildIdleFrame(data.idle, pageIdx);
   render();

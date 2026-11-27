@@ -37,3 +37,11 @@ TZ = os.environ.get("RACEBOARD_TZ", "").strip()
 
 LIVE_BASE = "https://livetiming.formula1.com"
 JOLPICA = "https://api.jolpi.ca/ergast/f1"
+
+# Full-screen alerts during a session, any of: overtake, battle, flag,
+# chequered. "none" turns them all off.
+_ALERT_KINDS = ("overtake", "battle", "flag", "chequered")
+_alerts = os.environ.get("RACEBOARD_ALERTS", "all").strip().lower()
+ALERTS = (set(_ALERT_KINDS) if _alerts in ("", "all") else
+          set() if _alerts in ("none", "0", "off") else
+          {a.strip() for a in _alerts.split(",") if a.strip() in _ALERT_KINDS})

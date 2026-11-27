@@ -1,21 +1,24 @@
-"""Between sessions: calendar, standings and the last result, from Jolpica.
+"""Between sessions: calendar, standings, results and track history.
 
 Jolpica (api.jolpi.ca) carries on the old Ergast API: free, no key, updated a
 few hours after each session. It isn't live, which is fine for these pages.
+The race weekend forecast comes from Open-Meteo, also free and keyless.
 """
 
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import httpx
 
-from . import config
+from . import config, history
 
 log = logging.getLogger("raceboard.schedule")
 
 REFRESH_S = 30 * 60
+OPEN_METEO = "https://api.open-meteo.com/v1/forecast"
+FORECAST_DAYS = 14   # Open-Meteo forecasts about two weeks ahead
 
 # Jolpica's constructorId -> livery colour. The live feed carries its own
 # colours, but between weekends there is no feed to ask.
@@ -39,7 +42,8 @@ TEAM_SHORT = {
     "aston_martin": "ASTON MARTIN", "cadillac": "CADILLAC",
 }
 
-_data = {"next": None, "drivers": [], "teams": [], "last": None, "updated": 0.0, "error": None}
+_data = {"next": None, "drivers": [], "teams": [], "last": None, "quali": None,
+         "forecast": None, "updated": 0.0, "error": None}
 
 
 def snapshot():
@@ -85,33 +89,42 @@ async def refresh(c):
         races = nxt["RaceTable"]["Races"][:1]
     if races:
         r = races[0]
+        loc = r["Circuit"]["Location"]
         _data["next"] = {
             "season": r["season"], "round": r["round"], "name": r["raceName"],
             "circuit": r["Circuit"]["circuitName"],
-            "locality": r["Circuit"]["Location"]["locality"],
-            "country": r["Circuit"]["Location"]["country"],
+            "circuitId": r["Circuit"]["circuitId"],
+            "locality": loc["locality"],
+            "country": loc["country"],
+            "date": r["date"],
             "sessions": _race_sessions(r),
         }
+        _data["quali"] = await _quali(c, r["season"], r["round"])
+        _data["forecast"] = await _forecast(c, loc, r["date"])
     else:
-        _data["next"] = None
+        _data["next"] = _data["quali"] = _data["forecast"] = None
 
     ds = (await _get(c, "current/driverstandings.json"))["StandingsTable"]["StandingsLists"]
     if ds:
+        before = await _prior_positions(c, ds[0]["season"], int(ds[0]["round"]), "driver")
         _data["standings_round"] = ds[0]["round"]
         _data["drivers"] = [{
-            "pos": int(d["position"]) if d.get("position", "").isdigit() else None,
+            "pos": _pos(d),
             "code": d["Driver"].get("code") or d["Driver"]["familyName"][:3].upper(),
             "points": d["points"],
             "colour": _colour(d["Constructors"][-1]["constructorId"] if d["Constructors"] else ""),
+            "change": _change(before.get(d["Driver"]["driverId"]), _pos(d)),
         } for d in ds[0]["DriverStandings"]]
 
     cs = (await _get(c, "current/constructorstandings.json"))["StandingsTable"]["StandingsLists"]
     if cs:
+        before = await _prior_positions(c, cs[0]["season"], int(cs[0]["round"]), "constructor")
         _data["teams"] = [{
-            "pos": int(t["position"]) if t.get("position", "").isdigit() else None,
+            "pos": _pos(t),
             "name": TEAM_SHORT.get(t["Constructor"]["constructorId"], t["Constructor"]["name"].upper()),
             "points": t["points"],
             "colour": _colour(t["Constructor"]["constructorId"]),
+            "change": _change(before.get(t["Constructor"]["constructorId"]), _pos(t)),
         } for t in cs[0]["ConstructorStandings"]]
 
     last = (await _get(c, "current/last/results.json"))["RaceTable"]["Races"]
@@ -128,6 +141,66 @@ async def refresh(c):
         }
     _data["updated"] = time.time()
     _data["error"] = None
+
+
+def _pos(x):
+    return int(x["position"]) if x.get("position", "").isdigit() else None
+
+
+def _change(before, now):
+    """Places gained (+) or lost (-) since the previous round."""
+    return before - now if before and now else 0
+
+
+async def _prior_positions(c, season, rnd, kind):
+    """Standings after the round before, keyed by driverId or constructorId."""
+    if rnd <= 1:
+        return {}
+    d = await _get(c, f"{season}/{rnd - 1}/{kind}standings.json")
+    lists = d["StandingsTable"]["StandingsLists"]
+    if not lists:
+        return {}
+    if kind == "constructor":
+        return {e["Constructor"]["constructorId"]: _pos(e) for e in lists[0]["ConstructorStandings"]}
+    return {e["Driver"]["driverId"]: _pos(e) for e in lists[0]["DriverStandings"]}
+
+
+async def _quali(c, season, rnd):
+    """Qualifying for the coming race, once it has run. None before that."""
+    races = (await _get(c, f"{season}/{rnd}/qualifying.json"))["RaceTable"]["Races"]
+    if not races:
+        return None
+    return [{
+        "pos": _pos(q),
+        "code": q["Driver"].get("code") or q["Driver"]["familyName"][:3].upper(),
+        "time": q.get("Q3") or q.get("Q2") or q.get("Q1") or "",
+        "colour": _colour(q["Constructor"]["constructorId"]),
+    } for q in races[0]["QualifyingResults"]]
+
+
+async def _forecast(c, loc, race_day):
+    """Daily high and chance of rain at the track, Friday to Sunday."""
+    try:
+        sunday = date.fromisoformat(race_day)
+        today = date.today()
+        if sunday < today or (sunday - today).days > FORECAST_DAYS:
+            return None
+        r = await c.get(OPEN_METEO, params={
+            "latitude": loc["lat"], "longitude": loc["long"], "timezone": "auto",
+            "daily": "temperature_2m_max,precipitation_probability_max",
+            "start_date": max(sunday - timedelta(days=2), today).isoformat(),
+            "end_date": sunday.isoformat(),
+        })
+        r.raise_for_status()
+        d = r.json()["daily"]
+        return [{
+            "day": date.fromisoformat(t).strftime("%a").upper(),
+            "high": round(hi) if hi is not None else None,
+            "rain": rain,
+        } for t, hi, rain in zip(d["time"], d["temperature_2m_max"], d["precipitation_probability_max"])]
+    except Exception as e:   # noqa: BLE001 - the forecast is a nicety
+        log.info("forecast: %s", e)
+        return None
 
 
 def _result_text(x):
@@ -147,6 +220,10 @@ async def run():
         while True:
             try:
                 await refresh(c)
+                try:
+                    await history.refresh(c)
+                except Exception as e:   # noqa: BLE001 - its pages just stay away
+                    log.warning("history: %s: %s", type(e).__name__, e)
                 await asyncio.sleep(REFRESH_S)
             except asyncio.CancelledError:
                 raise

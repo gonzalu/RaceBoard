@@ -130,7 +130,13 @@ def build(feed):
             "out": bool(line.get("KnockedOut")),
             "last": (line.get("LastLapTime") or {}).get("Value") or "",
             "fastest": ((stats.get(num) or {}).get("PersonalBestLapTime") or {}).get("Position") == 1,
+            "laps_done": line.get("NumberOfLaps"),
         }
+        if is_race:
+            # places made or lost since the start; 0 on the grid means a pit lane start
+            grid = str((app.get(num) or {}).get("GridPos") or "")
+            row["grid"] = int(grid) if grid.isdigit() and grid != "0" else None
+            row["gained"] = row["grid"] - row["pos"] if row["grid"] and row["pos"] else None
         if is_race:
             row["gap"] = line.get("GapToLeader") or ""
             row["interval"] = (line.get("IntervalToPositionAhead") or {}).get("Value") or ""
@@ -175,7 +181,7 @@ def build(feed):
         "session": _session_label(info, part),
         "type": typ,
         "status": status,
-        "track": {"text": track_text, "colour": track_colour},
+        "track": {"text": track_text, "colour": track_colour, "code": str(ts.get("Status") or "")},
         "lap": lap.get("CurrentLap"), "laps": lap.get("TotalLaps"),
         "remaining_s": remaining,
         "rows": rows,

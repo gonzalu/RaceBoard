@@ -34,8 +34,9 @@ feed as the timing page on formula1.com, which needs no login for timing data.
 it ends):
 
 - the running order in two columns of eleven, each car with its team colour
-- a value column that cycles every 8 s: interval, gap to the leader and last
-  lap in a race; best lap and gap in practice and qualifying
+- a value column that cycles every 8 s: interval, gap to the leader, last
+  lap and places gained or lost since the start in a race; best lap and gap
+  in practice and qualifying
 - the current tyre and its age, `IN PIT` / `PIT EXIT` / `STOPPED` / `OUT`
 - fastest lap holder in purple; knocked-out qualifiers dimmed
 - laps (race) or session clock (practice, qualifying)
@@ -43,16 +44,40 @@ it ends):
   fill the whole band
 - the latest race control message along the bottom, or the weather
 
-**Between sessions:** the next Grand Prix with a countdown to its next session
-and the weekend's schedule in your time zone, then driver standings,
-constructor standings and the last race's result, 12 s each.
+**Full-screen alerts** take over for 6 s when something happens:
+
+- **Overtake** for a place in the top 10
+- **Battle** when two cars in the top 10 cross the line within a second of
+  each other two laps running
+- **Safety car**, **virtual safety car**, **red flag**, and **green flag**
+  when the track clears
+- **Chequered flag**, with the winner
+
+The feed has no overtake message, so passes are worked out from the running
+order and filtered hard. Places changed in the pits, by a retirement, under a
+safety car or on the opening lap don't count. Neither does a burst of changes
+at once, which is usually the feed catching up. A missed pass is better than
+a false one.
+
+**Between sessions**, 12 s each:
+
+- the next Grand Prix, with a countdown to its next session and the weekend's
+  schedule in your time zone
+- the track: when it first held a Grand Prix, who has won there most, the
+  last five winners, and the weekend forecast once it's within two weeks
+- qualifying, from when it's run until the race
+- driver and constructor standings, with places gained or lost at the last
+  round
+- the last race's result
+- on this day: Grands Prix held on today's date in past years, and who won
 
 ## Where the data comes from
 
 | What | Source | Notes |
 |---|---|---|
 | Live timing | `livetiming.formula1.com/signalrcore` | F1's own feed. Unofficial and undocumented; no login needed for timing. Car telemetry and GPS need an F1 TV login, so RaceBoard doesn't use them. |
-| Schedule, standings, results | [Jolpica](https://github.com/jolpica/jolpica-f1) (`api.jolpi.ca`) | The successor to the Ergast API. Free, no key. |
+| Schedule, standings, results, history | [Jolpica](https://github.com/jolpica/jolpica-f1) (`api.jolpi.ca`) | The successor to the Ergast API. Free, no key. Every winner since 1950 is fetched once and kept in `data/history.json`, refreshed weekly. |
+| Race weekend forecast | [Open-Meteo](https://open-meteo.com/) | Free, no key. |
 
 F1 can change the live feed whenever it likes. If the feed stops answering,
 the board falls back to the schedule pages, and a feed that drops mid-session
@@ -206,6 +231,7 @@ All in `raceboard.env`; see `raceboard.env.example` for the full list.
 | `RACEBOARD_TZ` | server's zone | Time zone for session times, e.g. `America/New_York` |
 | `RACEBOARD_RESULT_HOLD_MIN` | `90` | Minutes a finished session's classification stays up |
 | `RACEBOARD_PRE_SESSION_MIN` | `15` | Minutes before a session the tower appears |
+| `RACEBOARD_ALERTS` | `all` | Full-screen alerts: any of `overtake,battle,flag,chequered`, or `none` |
 | `RACEBOARD_RECORD` | `1` | Record live sessions to `data/recordings/` |
 | `RACEBOARD_REPLAY` | | Replay a recording instead of the live feed |
 | `RACEBOARD_REPLAY_SPEED` | `1` | Replay speed multiplier |

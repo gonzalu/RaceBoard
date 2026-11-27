@@ -2,14 +2,15 @@ import asyncio
 import hashlib
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import board, config, schedule
+from . import board, config, history, schedule
+from .alerts import Alerts
 from .livetiming import Feed
 
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +18,7 @@ log = logging.getLogger("raceboard")
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 feed = Feed()
+alerts = Alerts()
 
 
 def _tz():
@@ -75,6 +77,9 @@ def api_board():
     if nxt:
         nxt = dict(nxt, sessions=[dict(s, local=_local(s["utc"])) for s in nxt["sessions"]])
     age = feed.age_s()
+    timing = board.build(feed) if mode == "timing" else None
+    alerts.update(timing)
+    today = datetime.now(TZ).date() if TZ else date.today()
     return {
         "build": BUILD,
         "mode": mode,
@@ -85,13 +90,19 @@ def api_board():
             "error": feed.last_error,
             "delay_s": config.DELAY_S,
         },
-        "timing": board.build(feed) if mode == "timing" else None,
+        "timing": timing,
+        "alerts": alerts.recent(),
         "idle": {
             "next": nxt,
             "drivers": sched.get("drivers") or [],
             "teams": sched.get("teams") or [],
             "standings_round": sched.get("standings_round"),
             "last": sched.get("last"),
+            "quali": sched.get("quali"),
+            "forecast": sched.get("forecast"),
+            "track": history.at_circuit(nxt["circuitId"]) if nxt and nxt.get("circuitId") else None,
+            "today": {"date": today.strftime("%d %b").upper(),
+                      "races": history.on_this_day(today.month, today.day)},
             "error": sched.get("error"),
         },
     }
