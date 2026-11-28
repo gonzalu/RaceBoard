@@ -354,8 +354,9 @@ async def run():
 # ---- what the board shows ----
 
 def _time(v):
-    """1'28.483 -> 1:28.483"""
-    return (v or "").replace("'", ":")
+    """1'28.483 -> 1:28.483; 0.000 (no time yet) -> blank"""
+    v = (v or "").replace("'", ":")
+    return "" if v.strip("0.:") == "" else v
 
 
 def _plus(v):
@@ -393,6 +394,7 @@ def timing(now=None):
     code = head.get("session_shortname") or ""
     label, kind = SESSIONS.get(code, (head.get("session_name", "").upper(), "Practice"))
     finished = head.get("session_status_id") == "F"
+    waiting = head.get("session_status_id") == "N"   # not started: on the grid, or before the pit lane opens
     riders = sorted((snap.get("rider") or {}).values(), key=lambda r: r.get("order") or 99)
     codes = dict(_codes([(r.get("rider_id"), r.get("rider_name") or "", r.get("rider_surname") or "") for r in riders]))
     codes.update({k: v for k, v in _d["codes"].items() if k in codes})
@@ -403,11 +405,12 @@ def timing(now=None):
     rows = []
     for i, r in enumerate(riders):
         pos = r.get("pos")
-        out = (r.get("status_name") or "CL") not in ("CL", "")
+        # CL: classified, NS: not started yet. Anything else is a rider out of it.
+        out = (r.get("status_name") or "CL") not in ("CL", "NS", "")
         row = {
             "num": str(r.get("rider_number") or ""),
             "number": str(r.get("rider_number") or ""),
-            "pos": pos if isinstance(pos, int) and pos > 0 else None,
+            "pos": pos if isinstance(pos, int) and pos > 0 else (r.get("order") if waiting else None),
             "tla": codes.get(str(r.get("rider_id"))) or _base(r.get("rider_surname") or ""),
             "colour": r.get("color") or _colour(r.get("team_name"), r.get("bike_name")),
             "tyre": "", "tyre_laps": None, "pits": None,
@@ -441,8 +444,9 @@ def timing(now=None):
         "meeting": f"MOTOGP {meeting}".strip(),
         "session": label,
         "type": kind,
-        "status": "Finished" if finished else "Started",
+        "status": "Finished" if finished else "Inactive" if waiting else "Started",
         "track": {"text": "CHEQUERED FLAG", "colour": "white", "code": ""} if finished
+        else {"text": "NOT STARTED", "colour": "white", "code": ""} if waiting
         else {"text": "", "colour": "green", "code": "1"},
         "lap": lap, "laps": laps,
         "remaining_s": remaining,

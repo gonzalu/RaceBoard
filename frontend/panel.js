@@ -260,8 +260,13 @@ const isOut = (t, r) => r.retired || (r.stopped && isDone(t));
 function rowValue(t, r, field, index) {
   if (isOut(t, r)) return ['OUT', C.dim];
   if (r.stopped) return ['STOPPED', C.red];
-  if (r.in_pit) return ['IN PIT', C.cyan];
-  if (r.pit_out) return ['PIT EXIT', C.cyan];
+  // In a running race a stop is the news, so it takes the value column. In
+  // practice, qualifying and after the flag the times matter more; the pit
+  // column beside the tyre says who's in.
+  if (t.type === 'Race' && !isDone(t)) {
+    if (r.in_pit) return ['IN PIT', C.cyan];
+    if (r.pit_out) return ['PIT EXIT', C.cyan];
+  }
   if (field === 'gained') {
     const g = r.gained;
     if (g == null) return [r.grid ? '' : 'PIT START', C.dim];
@@ -291,6 +296,9 @@ function drawTowerRow(t, r, i, field, index) {
   } else if (r.number) {
     drawRight(x0 + 117, y, fit(r.number, 2), C.dim);   // MotoGP: no tyres in its feed, so the bike's number
   }
+  // pit column: P in the pit lane, E on the way out
+  if (!dim && r.in_pit) drawText(x0 + 121, y, 'P', C.cyan);
+  else if (!dim && r.pit_out) drawText(x0 + 121, y, 'E', C.green);
 }
 
 function buildTimingFrame(data, fieldIdx, rcIdx) {
