@@ -68,6 +68,12 @@ a race ends, or 30 minutes after practice or qualifying):
   fill the whole band. A red flag stays up until the session restarts, and
   the clock follows F1's own, extensions included
 - the latest race control message along the bottom, or the weather
+- every 20 s, for 5 s, a map of the track with every car on it as a dot in
+  its team colour and code, the top ten down the side, and the start/finish
+  line with an arrow for the direction of travel (on the track page too). F1's car
+  positions need an F1 TV login, so the dots come from the mini-sectors each
+  car has passed this lap, which the free feed does carry: about one every
+  200 m, so each dot is within a corner or so of the real car
 
 **Full-screen alerts** take over for 6 s when something happens:
 

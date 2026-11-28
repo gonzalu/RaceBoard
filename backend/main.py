@@ -79,6 +79,8 @@ def api_board():
         nxt = dict(nxt, sessions=[dict(s, local=_local(s["utc"])) for s in nxt["sessions"]])
     age = feed.age_s()
     timing = board.build(feed) if mode == "timing" else None
+    if timing:
+        timing["map"] = circuits.outline_for_key(timing.get("circuit_key"))
     # MotoGP when no F1 session is on, and when one is running while F1 is
     # only counting down to its session or holding a finished one's result.
     # A running F1 session always wins.

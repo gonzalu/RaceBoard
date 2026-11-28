@@ -42,6 +42,23 @@ def _remaining(clock, now):
     return max(0, remaining - int((now - at).total_seconds()))
 
 
+def _lap_pos(line):
+    """How far round the lap a car is, 0 to 1, from the mini-sectors it has
+    passed: the feed marks each one as the car crosses it and clears them all
+    at the line. A mini-sector is about 200 m. None before it has set any."""
+    sectors = _list(line.get("Sectors"))
+    last = None
+    for i, sec in enumerate(sectors):
+        segs = _list((sec or {}).get("Segments"))
+        for j, seg in enumerate(segs):
+            if (seg or {}).get("Status"):
+                last = (i, j + 1, len(segs))
+    if not last or not sectors:
+        return None
+    i, done, n = last
+    return round((i + done / n) / len(sectors), 4)
+
+
 def _list(v):
     """Feed lists sometimes arrive as index-keyed dicts; read both the same way."""
     if isinstance(v, list):
@@ -155,6 +172,7 @@ def build(feed):
             "last": (line.get("LastLapTime") or {}).get("Value") or "",
             "fastest": ((stats.get(num) or {}).get("PersonalBestLapTime") or {}).get("Position") == 1,
             "laps_done": line.get("NumberOfLaps"),
+            "lap_pos": _lap_pos(line),
         }
         if is_race:
             # places made or lost since the start; 0 on the grid means a pit lane start
@@ -202,6 +220,7 @@ def build(feed):
     w = st.get("WeatherData") or {}
     return {
         "meeting": _meeting_short((info.get("Meeting") or {}).get("Name")),
+        "circuit_key": ((info.get("Meeting") or {}).get("Circuit") or {}).get("Key"),
         "session": _session_label(info, part),
         "type": typ,
         "status": status,

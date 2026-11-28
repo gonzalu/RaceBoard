@@ -16,7 +16,9 @@ const CFG = {
   POLL_MS: 1000,
   FIELD_MS: 8000,     // how long each timing column (interval, gap, last lap) holds
   PAGE_MS: 12000,     // between sessions: how long each page holds
-  RC_MS: 4000,        // a long race control message pages in chunks this fast
+  RC_MS: 4000,
+  MAP_EVERY_MS: 20000, // during a session, the car map comes up this often
+  MAP_MS: 5000,        // and stays this long (0: never)        // a long race control message pages in chunks this fast
   STALE_S: 90,        // feed silent this long during a session: say so
   ALERT_MS: 6000,     // how long a full-screen alert holds
   ALERT_QUEUE: 3,     // alerts waiting beyond this are dropped, oldest first
@@ -518,7 +520,9 @@ function simplify(pts, tol) {
   return pts.filter((p, i) => keep[i]);
 }
 
-function drawMap(m, bx, by, bw, bh) {
+// Draws the track in its sectors, or all in one colour, and returns where on
+// it a fraction of the lap (0 at the line) falls, for the car map.
+function drawMap(m, bx, by, bw, bh, colour) {
   const k = Math.min((bw - 2) / m.w, (bh - 2) / m.h);
   const ox = bx + Math.round((bw - 2 - m.w * k) / 2), oy = by + Math.round((bh - 2 - m.h * k) / 2);
   const raw = m.points.map(p => [ox + p[0] * k, oy + p[1] * k]);
@@ -544,13 +548,127 @@ function drawMap(m, bx, by, bw, bh) {
       if (from < cut && to > cut) {
         const t = (cut - run) / seg[i];
         const c = [pts[i][0] + (b[0] - pts[i][0]) * t, pts[i][1] + (b[1] - pts[i][1]) * t];
-        drawLineSeg(a[0], a[1], c[0], c[1], SECTORS[s - 1], true);
+        drawLineSeg(a[0], a[1], c[0], c[1], colour || SECTORS[s - 1], true);
         a = c; from = cut;
       }
     }
-    drawLineSeg(a[0], a[1], b[0], b[1], SECTORS[Math.min(2, Math.floor(from / total * 3))], true);
+    drawLineSeg(a[0], a[1], b[0], b[1], colour || SECTORS[Math.min(2, Math.floor(from / total * 3))], true);
     run = to;
   }
+  return f => {
+    let d = (((f % 1) + 1) % 1) * total;
+    for (let i = 0; i < n; i++) {
+      if (d <= seg[i] || i === n - 1) {
+        const a = pts[i], b = pts[(i + 1) % n], t = seg[i] ? Math.min(1, d / seg[i]) : 0;
+        return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+      }
+      d -= seg[i];
+    }
+    return pts[0];
+  };
+}
+
+// The start/finish line, chequered across the track, and a thin arrow beside
+// it pointing the way the cars go: outside the track, or inside where outside
+// would run off the map. Both are snapped to the nearest 45 degrees so they
+// run straight along the LED grid.
+function drawStartLine(at, bx, by, bw, bh) {
+  const p = at(0), q = at(0.012);
+  const ang = Math.round(Math.atan2(q[1] - p[1], q[0] - p[0]) / (Math.PI / 4)) * (Math.PI / 4);
+  const dx = Math.round(Math.cos(ang)), dy = Math.round(Math.sin(ang));   // along the track, -1..1
+  let nx = -dy, ny = dx;                                                   // across it
+  const x0 = Math.round(p[0]), y0 = Math.round(p[1]);
+  if (nx * (x0 - (bx + bw / 2)) + ny * (y0 - (by + bh / 2)) < 0) { nx = -nx; ny = -ny; }   // outward
+  const OFF = 6, HALF = 6;
+  const inside = (x, y) => x >= bx && x <= bx + bw && y >= by && y <= by + bh;
+  const fits = k => inside(x0 + nx * k * (OFF + 3) - dx * HALF, y0 + ny * k * (OFF + 3) - dy * HALF)
+                 && inside(x0 + nx * k * (OFF + 3) + dx * HALF, y0 + ny * k * (OFF + 3) + dy * HALF);
+  if (!fits(1) && fits(-1)) { nx = -nx; ny = -ny; }
+
+  // chequered in 2x2 squares: eight LEDs across the track, four along it
+  for (let k = -4; k <= 3; k++) {
+    for (let c = -1; c <= 2; c++) {
+      const x = x0 + nx * k + dx * c, y = y0 + ny * k + dy * c;
+      if ((Math.floor((k + 4) / 2) + Math.floor((c + 1) / 2)) % 2 === 0) setPx(x, y, C.white);
+      else if (x >= 0 && y >= 0 && x < W && y < H) fb[y * W + x] = 0;
+    }
+  }
+  // the arrow, one LED thick
+  const ox = x0 + nx * OFF, oy = y0 + ny * OFF;
+  for (let i = -HALF; i <= HALF; i++) setPx(ox + dx * i, oy + dy * i, C.white);
+  const tx = ox + dx * HALF, ty = oy + dy * HALF;
+  const h1 = [Math.sign(-dx + nx), Math.sign(-dy + ny)], h2 = [Math.sign(-dx - nx), Math.sign(-dy - ny)];
+  for (let i = 1; i <= 3; i++) {
+    setPx(tx + h1[0] * i, ty + h1[1] * i, C.white);
+    setPx(tx + h2[0] * i, ty + h2[1] * i, C.white);
+  }
+  // the area it all covers, so car labels can keep off it
+  const xs = [x0 - 5 * Math.abs(nx) - 2, x0 + 5 * Math.abs(nx) + 2, ox - dx * HALF, tx], ys = [y0 - 5 * Math.abs(ny) - 2, y0 + 5 * Math.abs(ny) + 2, oy - dy * HALF, ty];
+  const left = Math.min.apply(null, xs) - 3, top = Math.min.apply(null, ys) - 3;
+  return [left, top, Math.max.apply(null, xs) + 4 - left, Math.max.apply(null, ys) + 4 - top];
+}
+
+// Every car's code beside its dot, leaders first. Each label tries right,
+// left, above and below and takes the first spot that covers no other label,
+// dot or the list down the side; in a tight pack the cars behind go without.
+function labelCars(cars, at, keepOff) {
+  const taken = [];
+  const hit = (a, b) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
+  const dots = cars.map(r => { const p = at(r.lap_pos); return [Math.round(p[0]), Math.round(p[1])]; });
+  dots.forEach(d => taken.push([d[0] - 1, d[1] - 1, 4, 4]));
+  if (keepOff) taken.push(keepOff);
+  cars.forEach((r, i) => {
+    const d = dots[i], w = textW(r.tla) - 1, h = 7;
+    const spots = [[d[0] + 4, d[1] - 3], [d[0] - 3 - w, d[1] - 3], [d[0] - Math.round(w / 2), d[1] - 10],
+                   [d[0] - Math.round(w / 2), d[1] + 5]];
+    for (const s of spots) {
+      const box = [s[0] - 1, s[1] - 1, w + 2, h + 2];
+      if (s[0] < 0 || s[1] < 12 || s[0] + w > 183 || s[1] + h > 143) continue;
+      if (taken.some((b, k) => k !== i && hit(box, b))) continue;
+      taken.push(box);
+      drawText(s[0], s[1], r.tla, i === 0 ? C.amber : C.text);
+      return;
+    }
+  });
+}
+
+/* ---------- the car map, flashed up during a session ---------- */
+
+// Every MAP_EVERY_MS for MAP_MS, when the session's track and the cars'
+// places on it (from the mini-sectors they've passed) are known.
+function carMapDue(t) {
+  if (!t.map || !CFG.MAP_MS) return false;
+  if (!t.rows.some(r => r.lap_pos != null && !r.in_pit)) return false;
+  return Date.now() % CFG.MAP_EVERY_MS < CFG.MAP_MS;
+}
+
+function buildCarMapFrame(data) {
+  const t = data.timing;
+  clear();
+  drawText(0, 1, fit(`${t.meeting} ${t.session}`, 30), C.text);
+  if (t.type === 'Race' && t.laps) drawRight(W - 1, 1, `LAP ${orIf(t.lap, 0)}/${t.laps}`, C.amber);
+  else if (remainingNow() != null) drawRight(W - 1, 1, fmtClock(remainingNow()), C.amber);
+  hLine(10, C.faint);
+
+  const at = drawMap(t.map, 2, 13, 180, 129, C.faint);
+  const startBox = drawStartLine(at, 2, 13, 180, 129);
+  const onTrack = t.rows.filter(r => r.lap_pos != null && !r.in_pit && !isOut(t, r) && !r.out);
+  // back markers first, so the leaders are drawn on top
+  onTrack.slice().reverse().forEach(r => {
+    const p = at(r.lap_pos);
+    fillRect(Math.round(p[0]) - 1, Math.round(p[1]) - 1, 4, 4, r.stopped ? C.red : hex(r.colour));
+  });
+  labelCars(onTrack, at, startBox);
+
+  // the order down the side, top ten
+  t.rows.slice(0, 10).forEach((r, i) => {
+    const y = 14 + i * 10;
+    fillRect(190, y, 2, 7, hex(r.colour));
+    drawRight(205, y, orIf(r.pos, '-'), C.dim);
+    drawText(211, y, r.tla, r.in_pit ? C.cyan : i === 0 ? C.amber : C.text);
+  });
+  const pit = t.rows.filter(r => r.in_pit && !isOut(t, r)).length;
+  if (pit) drawRight(W - 1, 135, `${pit} IN PIT`, C.cyan);
 }
 
 function buildTrackFrame(idle) {
@@ -565,7 +683,7 @@ function buildTrackFrame(idle) {
 
   if (m) {
     // map on the left, the track's history down the right
-    drawMap(m, 2, 25, 146, bottom - 28);
+    drawStartLine(drawMap(m, 2, 25, 146, bottom - 28), 2, 25, 146, bottom - 28);
     const x = 156;
     if (h) {
       drawText(x, 26, `FIRST GP ${h.first}`, C.dim);
@@ -852,6 +970,7 @@ function paint() {
   else if (!data) buildMessageFrame(['...']);
   else if (linkDown) buildMessageFrame(['NO LINK', 'backend down']);
   else if (currentAlert()) buildAlertFrame(alertShown);
+  else if (data.mode === 'timing' && data.timing && carMapDue(data.timing)) buildCarMapFrame(data);
   else if (data.mode === 'timing' && data.timing) buildTimingFrame(data, fieldIdx, rcIdx);
   else buildIdleFrame(data.idle, pageIdx);
   render();

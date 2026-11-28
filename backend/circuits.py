@@ -124,6 +124,17 @@ def _f1_outline(circuit_id):
             round(w / span, 4), round(h / span, 4))
 
 
+def outline_for_key(key):
+    """F1's outline for one of its circuit keys (the live feed's
+    Meeting.Circuit.Key), if it's kept; for the car map during a session."""
+    ids = {v: k for k, v in F1_KEYS.items()}
+    f1 = _f1_outline(ids.get(int(key))) if str(key or "").isdigit() and int(key) in ids else None
+    if not f1:
+        return None
+    points, w, h = f1
+    return {"points": points, "w": w, "h": h}
+
+
 def outline(lat, lon, circuit_id=None):
     """The circuit's outline and length, or None if neither source has it."""
     g = _geo_outline(lat, lon)
