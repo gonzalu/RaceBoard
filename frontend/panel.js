@@ -472,10 +472,34 @@ const SECTORS = [C.red, 0x2a7fff, C.yellow];
 // line in the direction of travel. Fit it to the box, centred, two LEDs thick,
 // and colour it in thirds by distance: the feed doesn't say where the real
 // sector lines are, so these are close to them rather than exact.
+// Douglas-Peucker: drops points that stray less than tol LEDs from the line
+// through their neighbours, so a straight that drifts across an LED row
+// boundary is drawn as one clean line instead of hopping between rows.
+function simplify(pts, tol) {
+  const keep = pts.map(() => false);
+  keep[0] = keep[pts.length - 1] = true;
+  const stack = [[0, pts.length - 1]];
+  while (stack.length) {
+    const ab = stack.pop(), a = pts[ab[0]], b = pts[ab[1]];
+    const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+    let far = -1, worst = tol;
+    for (let i = ab[0] + 1; i < ab[1]; i++) {
+      const d = len ? Math.abs(dy * (pts[i][0] - a[0]) - dx * (pts[i][1] - a[1])) / len
+                    : Math.hypot(pts[i][0] - a[0], pts[i][1] - a[1]);   // a closed loop's ends meet
+      if (d > worst) { worst = d; far = i; }
+    }
+    if (far >= 0) { keep[far] = true; stack.push([ab[0], far], [far, ab[1]]); }
+  }
+  return pts.filter((p, i) => keep[i]);
+}
+
 function drawMap(m, bx, by, bw, bh) {
   const k = Math.min((bw - 2) / m.w, (bh - 2) / m.h);
   const ox = bx + Math.round((bw - 2 - m.w * k) / 2), oy = by + Math.round((bh - 2 - m.h * k) / 2);
-  const pts = m.points.map(p => [ox + p[0] * k, oy + p[1] * k]);
+  const raw = m.points.map(p => [ox + p[0] * k, oy + p[1] * k]);
+  raw.push(raw[0]);
+  const pts = simplify(raw, 0.7);
+  pts.pop();   // the loop closes itself below
   const n = pts.length;
   const seg = [];
   let total = 0;
