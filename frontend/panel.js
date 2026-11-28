@@ -428,7 +428,8 @@ function buildTeamsFrame(idle) {
     const x0 = 40, y = ROW_Y0 + i * ROW_PITCH;
     fillRect(x0, y, 2, 7, hex(t.colour));
     drawRight(x0 + 15, y, orIf(t.pos, '-'), C.text);
-    drawText(x0 + 22, y, fit(t.name, 14), C.text);
+    drawFlag(t.flag, x0 + 19, y);
+    drawText(x0 + 32, y, fit(t.name, 14), C.text);
     drawRight(x0 + 175, y, t.points, C.amber);
     drawChange(x0 + 205, y, t.change);
   });

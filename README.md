@@ -9,8 +9,9 @@
 RaceBoard turns any browser, and any TV with a Chromecast or a spare Raspberry
 Pi, into a live F1 timing tower: the whole field, gaps and intervals, tyres,
 pit stops, flags and race control messages, updating as it happens. Between
-sessions it counts down to the next one and cycles through the standings and
-the last result.
+sessions it counts down to the next one and cycles through the track, the
+standings, the latest results and what happened in F1 on this day, with each
+driver's flag beside their name.
 
 It isn't styled to look like an LED panel, it emulates one: a real
 framebuffer, text drawn from the Adafruit GFX bitmap font that LED matrix
@@ -21,10 +22,11 @@ feed as the timing page on formula1.com, which needs no login for timing data.
 
 <div align="center">
 
-![RaceBoard cycling through its pages on a TV](img/demo.gif)
+![RaceBoard cycling through its pages](img/demo.gif)
 
-*Between sessions on a kitchen TV, cast from a Chromecast: standings, the
-last result, the countdown to the next session and the track.*
+*Practice under yellow, VSC and red flags, a race with its alerts, then the
+pages between sessions: the next race, the track, the standings, the last
+result and on this day.*
 
 **▶ [Watch the walkthrough on YouTube](https://youtu.be/_0CmI_roeq4)**
 
@@ -32,12 +34,18 @@ last result, the countdown to the next session and the track.*
 
 | | |
 |---|---|
-| ![timing tower](img/timing.jpg) | ![next race](img/next.jpg) |
-| **During a session:** all 22 cars at once | **Between sessions:** countdown and weekend schedule |
-| ![driver standings](img/drivers.jpg) | ![last result](img/result.jpg) |
-| **Driver standings** (constructors too) | **The last race's result** |
-| ![track page](img/track.jpg) | ![countdown on a TV](img/tv.jpg) |
-| **The track:** map in sectors, history, forecast | **On a real TV,** cast from a Chromecast |
+| ![practice timing](img/timing.png) | ![race timing](img/race.png) |
+| **Practice and qualifying:** all 22 cars, best laps, tyres | **A race:** intervals, tyres, cars stopped and out |
+| ![red flag](img/red-flag.png) | ![overtake alert](img/overtake.png) |
+| **Flags** fill the band across the top | **Alerts** take over for overtakes, battles and flags |
+| ![next race](img/next.png) | ![track page](img/track.png) |
+| **The next race:** countdown and the weekend in your time zone | **The track,** turned as F1 TV shows it, in sectors |
+| ![driver standings](img/drivers.png) | ![constructor standings](img/teams.png) |
+| **Driver standings,** with each driver's flag | **Constructors,** with each team's home |
+| ![last result](img/result.png) | ![on this day](img/today.png) |
+| **The last race's result** | **On this day** in F1 |
+| ![the day's story](img/story.png) | ![on a TV](img/tv.jpg) |
+| **The day's story,** from Wikipedia | **On a real TV,** cast from a Chromecast |
 
 ---
 
@@ -54,7 +62,8 @@ a race ends, or 30 minutes after practice or qualifying):
 - fastest lap holder in purple; knocked-out qualifiers dimmed
 - laps (race) or session clock (practice, qualifying)
 - track status: green, yellow, safety car, VSC, red flag and chequered flag
-  fill the whole band
+  fill the whole band. A red flag stays up until the session restarts, and
+  the clock follows F1's own, extensions included
 - the latest race control message along the bottom, or the weather
 
 **Full-screen alerts** take over for 6 s when something happens:
@@ -74,14 +83,12 @@ a false one.
 
 **Between sessions**, 12 s each:
 
-Country flags, drawn LED by LED at 10×7, mark the host of the next Grand
-Prix and every driver in the standings and results.
-
 - the next Grand Prix, with a countdown to its next session and the weekend's
   schedule in your time zone
 - the track: a map of the circuit, turned the way F1 TV shows it, in its
   three sectors (split evenly by distance from the finish line, so close to
-  the real ones rather than exact) and its length, when it first held a Grand Prix, who has won there most, the last winners, and the weekend
+  the real ones rather than exact), with its length, when it first held a
+  Grand Prix, who has won there most, the last winners, and the weekend
   forecast once it's within two weeks
 - on a sprint weekend, the sprint's result, with the points scored
 - qualifying, from when it's run until the race
@@ -90,7 +97,12 @@ Prix and every driver in the standings and results.
 - the last race's result
 - on this day: Grands Prix won on today's date, first wins, titles clinched
   (from 1991) and drivers born on it, then the day's main story in a
-  paragraph from Wikipedia. On a quiet day it takes in the week around it
+  paragraph from Wikipedia, which stays up twice as long. On a quiet day it
+  takes in the week around it
+
+Country flags, drawn LED by LED at 10×7, mark the host of the next Grand
+Prix, every driver in the standings and results, and each team's home in the
+constructors' table.
 
 ## Where the data comes from
 

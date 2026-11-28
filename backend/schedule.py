@@ -126,6 +126,7 @@ async def refresh(c):
         _data["teams"] = [{
             "pos": _pos(t),
             "name": TEAM_SHORT.get(t["Constructor"]["constructorId"], t["Constructor"]["name"].upper()),
+            "flag": flags.nation(t["Constructor"].get("nationality")),
             "points": t["points"],
             "colour": _colour(t["Constructor"]["constructorId"]),
             "change": _change(before.get(t["Constructor"]["constructorId"]), _pos(t)),
