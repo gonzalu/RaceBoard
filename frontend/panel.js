@@ -187,6 +187,62 @@ function fmtCountdown(ms) {
 
 /* ---------- timing tower ---------- */
 
+/* ---------- flags ---------- */
+
+// Every flag is 10x7 LEDs, drawn by hand, one letter per LED. Black is a dim
+// grey: a black LED is an unlit one, and half of Germany would vanish.
+const FLAG_INK = {
+  r: 0xe8112d, w: 0xf2f2f2, b: 0x1e5bd8, n: 0x1a3a8c, g: 0x14a44d, y: 0xffd400, k: 0x3a3a3a,
+  o: 0xff8c1a, m: 0x8a1538, c: 0x5bc8f0, f: 0xff9933, d: 0x8b5a2b,
+};
+const v3 = (a, b, c) => Array(7).fill(a.repeat(3) + b.repeat(4) + c.repeat(3));
+const h3 = (a, b, c) => [a, a, b, b, b, c, c].map(x => x.repeat(10));
+const h2 = (a, b) => [a, a, a, a, b, b, b].map(x => x.repeat(10));
+const cross = (bg, fg) => [0, 1, 2, 3, 4, 5, 6].map(y => (y === 3 ? fg.repeat(10) : bg.repeat(3) + fg + bg.repeat(6)));
+const FLAGS = {
+  it: v3('g', 'w', 'r'), fr: v3('b', 'w', 'r'), be: v3('k', 'y', 'r'), ie: v3('g', 'w', 'o'),
+  mx: ['gggwwwwrrr', 'gggwwwwrrr', 'gggwwwwrrr', 'gggwddwrrr', 'gggwwwwrrr', 'gggwwwwrrr', 'gggwwwwrrr'],
+  de: h3('k', 'r', 'y'), at: h3('r', 'w', 'r'), nl: h3('r', 'w', 'b'), hu: h3('r', 'w', 'g'),
+  ru: h3('w', 'b', 'r'), es: h3('r', 'y', 'r'), mc: h2('r', 'w'), id: h2('r', 'w'), pl: h2('w', 'r'),
+  co: ['y', 'y', 'y', 'b', 'b', 'r', 'r'].map(x => x.repeat(10)),
+  th: ['r', 'w', 'n', 'n', 'n', 'w', 'r'].map(x => x.repeat(10)),
+  ar: h3('c', 'w', 'c').map((r, y) => (y === 3 ? 'wwwwyywwww' : r)),
+  in: h3('f', 'w', 'g').map((r, y) => (y === 3 ? 'wwwwnnwwww' : r)),
+  az: h3('c', 'r', 'g').map((r, y) => (y === 3 ? 'rrrrwwrrrr' : r)),
+  dk: cross('r', 'w'), se: cross('b', 'y'), fi: cross('w', 'n'),
+  ch: ['rrrrrrrrrr', 'rrrrwwrrrr', 'rrrrwwrrrr', 'rrwwwwwwrr', 'rrrrwwrrrr', 'rrrrwwrrrr', 'rrrrrrrrrr'],
+  jp: ['wwwwwwwwww', 'wwwwrrwwww', 'wwwrrrrwww', 'wwwrrrrwww', 'wwwrrrrwww', 'wwwwrrwwww', 'wwwwwwwwww'],
+  kr: ['wwwwwwwwww', 'kwwwwwwwwk', 'wwwwrrwwww', 'wwwrrbbwww', 'wwwwbbwwww', 'kwwwwwwwwk', 'wwwwwwwwww'],
+  ca: ['rrwwwwwwrr', 'rrwwrrwwrr', 'rrwrrrrwrr', 'rrwwrrwwrr', 'rrwwwrwwrr', 'rrwwwwwwrr', 'rrwwwwwwrr'],
+  br: ['ggggyygggg', 'gggyyyyggg', 'ggyybbyygg', 'gyybbbbyyg', 'ggyybbyygg', 'gggyyyyggg', 'ggggyygggg'],
+  pt: ['ggggrrrrrr', 'ggggrrrrrr', 'gggyyrrrrr', 'gggyyrrrrr', 'gggyyrrrrr', 'ggggrrrrrr', 'ggggrrrrrr'],
+  gb: ['rwnwrrwnwr', 'nwwwrrwwwn', 'wwwwrrwwww', 'rrrrrrrrrr', 'wwwwrrwwww', 'nwwwrrwwwn', 'rwnwrrwnwr'],
+  us: ['nwnwrrrrrr', 'wnwnwwwwww', 'nwnwrrrrrr', 'nnnnwwwwww', 'rrrrrrrrrr', 'wwwwwwwwww', 'rrrrrrrrrr'],
+  au: ['wrwnnnnnnn', 'rrrnnnnwnn', 'wrwnnnnnnn', 'nnnnnnnnnw', 'nwnnnnnwnn', 'nnnnnnnnnn', 'nnnnnnnwnn'],
+  nz: ['wrwnnnnnnn', 'rrrnnnnrnn', 'wrwnnnnnnn', 'nnnnnnnnnr', 'nnnnnnnrnn', 'nnnnnnnnnn', 'nnnnnnnrnn'],
+  cn: ['rryrrrrrrr', 'ryyyryrrrr', 'rryrrrrrrr', 'rrrrryrrrr', 'rrrrrrrrrr', 'rrrrrrrrrr', 'rrrrrrrrrr'],
+  qa: ['wwwmmmmmmm', 'wwwwmmmmmm', 'wwwmmmmmmm', 'wwwwmmmmmm', 'wwwmmmmmmm', 'wwwwmmmmmm', 'wwwmmmmmmm'],
+  bh: ['wwwrrrrrrr', 'wwwwrrrrrr', 'wwwrrrrrrr', 'wwwwrrrrrr', 'wwwrrrrrrr', 'wwwwrrrrrr', 'wwwrrrrrrr'],
+  sa: ['gggggggggg', 'gggggggggg', 'ggwgwgwwgg', 'ggwwwwwwgg', 'gggggggggg', 'gggwwwwwgg', 'gggggggggg'],
+  ae: ['rrrggggggg', 'rrrggggggg', 'rrrwwwwwww', 'rrrwwwwwww', 'rrrwwwwwww', 'rrrkkkkkkk', 'rrrkkkkkkk'],
+  sg: ['rrrrrrrrrr', 'rwrwrrrrrr', 'rwrrrrrrrr', 'rrrrrrrrrr', 'wwwwwwwwww', 'wwwwwwwwww', 'wwwwwwwwww'],
+  my: ['nnnnnrrrrr', 'nyynnwwwww', 'nyynnrrrrr', 'nnnnnwwwww', 'rrrrrrrrrr', 'wwwwwwwwww', 'rrrrrrrrrr'],
+  tr: ['rrrrrrrrrr', 'rrwwrrrrrr', 'rwrrrrrrrr', 'rwrrrwrrrr', 'rwrrrrrrrr', 'rrwwrrrrrr', 'rrrrrrrrrr'],
+  cz: ['bwwwwwwwww', 'bbwwwwwwww', 'bbbwwwwwww', 'bbbbrrrrrr', 'bbbrrrrrrr', 'bbrrrrrrrr', 'brrrrrrrrr'],
+  za: ['gwrrrrrrrr', 'kgwwwwwwww', 'kygggggggg', 'kygggggggg', 'kygggggggg', 'kgwwwwwwww', 'gwbbbbbbbb'],
+  ve: h3('y', 'b', 'r').map((r, y) => (y === 3 ? 'bbbwwwwbbb' : r)),
+};
+// Draws a flag with its top-left LED at (x, y), each LED scale x scale. Unknown: nothing.
+function drawFlag(code, x, y, scale = 1) {
+  const art = FLAGS[code];
+  if (!art) return false;
+  art.forEach((row, j) => {
+    for (let i = 0; i < 10; i++) fillRect(x + i * scale, y + j * scale, scale, scale, FLAG_INK[row[i]]);
+  });
+  return true;
+}
+const FLAG_W = 10;
+
 const ROW_Y0 = 23, ROW_PITCH = 10, ROWS = 11, COL_X = [0, 129];
 
 function timingFields(t) {
@@ -301,6 +357,7 @@ function idlePages(idle) {
   const pages = [];
   if (idle.next) pages.push('next');
   if (idle.next && (idle.track || idle.forecast || idle.map)) pages.push('track');
+  if (idle.sprint && idle.sprint.length) pages.push('sprint');
   if (idle.quali && idle.quali.length) pages.push('quali');
   if (idle.drivers.length) pages.push('drivers');
   if (idle.teams.length) pages.push('teams');
@@ -317,7 +374,14 @@ function buildNextFrame(n) {
   drawText(0, 1, `ROUND ${n.round}`, C.dim);
   drawRight(W - 1, 1, n.season, C.dim);
   const name = n.name.toUpperCase().replace(' GRAND PRIX', ' GP');
-  drawCentered(13, fit(name, 21), C.text, 2);
+  if (FLAGS[n.flag]) {
+    // the host's flag at twice size, beside the name, the pair centred
+    const t = fit(name, 18), x = Math.round((W - (FLAG_W * 2 + 8 + textW(t, 2))) / 2);
+    drawFlag(n.flag, x, 14, 2);
+    drawText(x + FLAG_W * 2 + 8, 13, t, C.text, 2);
+  } else {
+    drawCentered(13, fit(name, 21), C.text, 2);
+  }
   drawCentered(33, fit(`${n.circuit}`.toUpperCase(), 42), C.dim);
 
   const sessions = n.sessions.map(s => ({ ...s, t: Date.parse(s.utc) }));
@@ -349,7 +413,8 @@ function buildDriversFrame(idle) {
     const x0 = COL_X[i < ROWS ? 0 : 1], y = ROW_Y0 + (i % ROWS) * ROW_PITCH;
     fillRect(x0, y, 2, 7, hex(d.colour));
     drawRight(x0 + 15, y, orIf(d.pos, '-'), C.text);
-    drawText(x0 + 22, y, d.code, C.text);
+    drawFlag(d.flag, x0 + 19, y);
+    drawText(x0 + 32, y, d.code, C.text);
     drawRight(x0 + 93, y, d.points, C.amber);
     drawChange(x0 + 117, y, d.change);
   });
@@ -378,8 +443,9 @@ function buildLastFrame(idle) {
     const x0 = COL_X[i < ROWS ? 0 : 1], y = ROW_Y0 + (i % ROWS) * ROW_PITCH;
     fillRect(x0, y, 2, 7, hex(r.colour));
     drawRight(x0 + 15, y, r.pos, C.text);
-    drawText(x0 + 22, y, r.code, i === 0 ? C.amber : C.text);
-    drawRight(x0 + 117, y, fit(r.result, 12), i === 0 ? C.amber : C.dim);
+    drawFlag(r.flag, x0 + 19, y);
+    drawText(x0 + 32, y, r.code, i === 0 ? C.amber : C.text);
+    drawRight(x0 + 117, y, fit(r.result, 10), i === 0 ? C.amber : C.dim);
   });
 }
 
@@ -439,7 +505,9 @@ function drawMap(m, bx, by, bw, bh) {
 
 function buildTrackFrame(idle) {
   const n = idle.next, h = idle.track, m = idle.map;
-  drawText(0, 1, fit(`${n.locality}, ${n.country}`.toUpperCase(), 30), C.dim);
+  const place = `${n.locality}, ${n.country}`.toUpperCase();
+  if (drawFlag(n.flag, 0, 1)) drawText(FLAG_W + 4, 1, fit(place, 27), C.dim);
+  else drawText(0, 1, fit(place, 30), C.dim);
   drawRight(W - 1, 1, m && m.length_m ? `${(m.length_m / 1000).toFixed(3)} KM` : 'THE TRACK', C.dim);
   drawCentered(12, fit(n.circuit.toUpperCase(), 42), C.text);
   hLine(21, C.faint);
@@ -495,6 +563,21 @@ const TEAM_COLOURS = {
   williams: '1868DB', aston_martin: '229971', cadillac: '909090',
 };
 
+function buildSprintFrame(idle) {
+  drawText(0, 1, fit(idle.next.name.toUpperCase().replace(' GRAND PRIX', ' GP'), 30), C.text);
+  drawRight(W - 1, 1, 'SPRINT', C.dim);
+  hLine(21, C.faint);
+  idle.sprint.slice(0, ROWS * 2).forEach((r, i) => {
+    const x0 = COL_X[i < ROWS ? 0 : 1], y = ROW_Y0 + (i % ROWS) * ROW_PITCH;
+    fillRect(x0, y, 2, 7, hex(r.colour));
+    drawRight(x0 + 15, y, r.pos, C.text);
+    drawFlag(r.flag, x0 + 19, y);
+    drawText(x0 + 32, y, r.code, i === 0 ? C.amber : C.text);
+    if (r.points) drawRight(x0 + 62, y, r.points, C.green);
+    drawRight(x0 + 117, y, fit(r.result, 8), i === 0 ? C.amber : C.dim);
+  });
+}
+
 function buildQualiFrame(idle) {
   drawText(0, 1, fit(idle.next.name.toUpperCase().replace(' GRAND PRIX', ' GP'), 26), C.text);
   drawRight(W - 1, 1, 'QUALIFYING', C.dim);
@@ -503,7 +586,8 @@ function buildQualiFrame(idle) {
     const x0 = COL_X[i < ROWS ? 0 : 1], y = ROW_Y0 + (i % ROWS) * ROW_PITCH;
     fillRect(x0, y, 2, 7, hex(q.colour));
     drawRight(x0 + 15, y, orIf(q.pos, '-'), C.text);
-    drawText(x0 + 22, y, q.code, i === 0 ? C.purple : C.text);
+    drawFlag(q.flag, x0 + 19, y);
+    drawText(x0 + 32, y, q.code, i === 0 ? C.purple : C.text);
     drawRight(x0 + 117, y, fit(q.time, 9), i === 0 ? C.purple : C.dim);
   });
 }
@@ -564,6 +648,7 @@ function buildIdleFrame(idle, pageIdx) {
   else if (page === 'teams') buildTeamsFrame(idle);
   else if (page === 'track') buildTrackFrame(idle);
   else if (page === 'quali') buildQualiFrame(idle);
+  else if (page === 'sprint') buildSprintFrame(idle);
   else if (page === 'today') buildTodayFrame(idle);
   else if (page === 'story') buildStoryFrame(idle);
   else buildLastFrame(idle);

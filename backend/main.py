@@ -99,6 +99,7 @@ def api_board():
             "standings_round": sched.get("standings_round"),
             "last": sched.get("last"),
             "quali": sched.get("quali"),
+            "sprint": sched.get("sprint"),
             "forecast": sched.get("forecast"),
             "map": circuits.outline(nxt["lat"], nxt["long"], nxt.get("circuitId")) if nxt and "lat" in nxt else None,
             "track": history.at_circuit(nxt["circuitId"]) if nxt and nxt.get("circuitId") else None,

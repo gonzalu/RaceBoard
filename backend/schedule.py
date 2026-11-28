@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import httpx
 
-from . import circuits, config, history, lore
+from . import circuits, config, flags, history, lore
 
 log = logging.getLogger("raceboard.schedule")
 
@@ -42,7 +42,7 @@ TEAM_SHORT = {
     "aston_martin": "ASTON MARTIN", "cadillac": "CADILLAC",
 }
 
-_data = {"next": None, "drivers": [], "teams": [], "last": None, "quali": None,
+_data = {"next": None, "drivers": [], "teams": [], "last": None, "quali": None, "sprint": None,
          "forecast": None, "updated": 0.0, "error": None}
 
 
@@ -96,14 +96,16 @@ async def refresh(c):
             "circuitId": r["Circuit"]["circuitId"],
             "locality": loc["locality"],
             "country": loc["country"],
+            "flag": flags.country(loc["country"]),
             "date": r["date"],
             "lat": float(loc["lat"]), "long": float(loc["long"]),
             "sessions": _race_sessions(r),
         }
         _data["quali"] = await _quali(c, r["season"], r["round"])
+        _data["sprint"] = await _sprint(c, r["season"], r["round"]) if r.get("Sprint") else None
         _data["forecast"] = await _forecast(c, loc, r["date"])
     else:
-        _data["next"] = _data["quali"] = _data["forecast"] = None
+        _data["next"] = _data["quali"] = _data["sprint"] = _data["forecast"] = None
 
     ds = (await _get(c, "current/driverstandings.json"))["StandingsTable"]["StandingsLists"]
     if ds:
@@ -112,6 +114,7 @@ async def refresh(c):
         _data["drivers"] = [{
             "pos": _pos(d),
             "code": d["Driver"].get("code") or d["Driver"]["familyName"][:3].upper(),
+            "flag": flags.nation(d["Driver"].get("nationality")),
             "points": d["points"],
             "colour": _colour(d["Constructors"][-1]["constructorId"] if d["Constructors"] else ""),
             "change": _change(before.get(d["Driver"]["driverId"]), _pos(d)),
@@ -136,6 +139,7 @@ async def refresh(c):
             "results": [{
                 "pos": int(x["position"]),
                 "code": x["Driver"].get("code") or x["Driver"]["familyName"][:3].upper(),
+                "flag": flags.nation(x["Driver"].get("nationality")),
                 "result": _result_text(x),
                 "colour": _colour(x["Constructor"]["constructorId"]),
             } for x in r["Results"]],
@@ -174,9 +178,25 @@ async def _quali(c, season, rnd):
     return [{
         "pos": _pos(q),
         "code": q["Driver"].get("code") or q["Driver"]["familyName"][:3].upper(),
+        "flag": flags.nation(q["Driver"].get("nationality")),
         "time": q.get("Q3") or q.get("Q2") or q.get("Q1") or "",
         "colour": _colour(q["Constructor"]["constructorId"]),
     } for q in races[0]["QualifyingResults"]]
+
+
+async def _sprint(c, season, rnd):
+    """The coming race weekend's sprint, once it has run. None before that."""
+    races = (await _get(c, f"{season}/{rnd}/sprint.json"))["RaceTable"]["Races"]
+    if not races:
+        return None
+    return [{
+        "pos": int(x["position"]),
+        "code": x["Driver"].get("code") or x["Driver"]["familyName"][:3].upper(),
+        "flag": flags.nation(x["Driver"].get("nationality")),
+        "result": _result_text(x),
+        "points": float(x.get("points") or 0),
+        "colour": _colour(x["Constructor"]["constructorId"]),
+    } for x in races[0]["SprintResults"]]
 
 
 async def _forecast(c, loc, race_day):

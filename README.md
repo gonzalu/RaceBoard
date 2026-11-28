@@ -74,12 +74,16 @@ a false one.
 
 **Between sessions**, 12 s each:
 
+Country flags, drawn LED by LED at 10×7, mark the host of the next Grand
+Prix and every driver in the standings and results.
+
 - the next Grand Prix, with a countdown to its next session and the weekend's
   schedule in your time zone
 - the track: a map of the circuit, turned the way F1 TV shows it, in its
   three sectors (split evenly by distance from the finish line, so close to
   the real ones rather than exact) and its length, when it first held a Grand Prix, who has won there most, the last winners, and the weekend
   forecast once it's within two weeks
+- on a sprint weekend, the sprint's result, with the points scored
 - qualifying, from when it's run until the race
 - driver and constructor standings, with places gained or lost at the last
   round
