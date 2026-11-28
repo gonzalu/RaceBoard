@@ -16,9 +16,9 @@ const CFG = {
   POLL_MS: 1000,
   FIELD_MS: 8000,     // how long each timing column (interval, gap, last lap) holds
   PAGE_MS: 12000,     // between sessions: how long each page holds
-  RC_MS: 4000,
+  RC_MS: 4000,        // a long race control message pages in chunks this fast
   MAP_EVERY_MS: 20000, // during a session, the car map comes up this often
-  MAP_MS: 5000,        // and stays this long (0: never)        // a long race control message pages in chunks this fast
+  MAP_MS: 5000,        // and stays this long (0: never)
   STALE_S: 90,        // feed silent this long during a session: say so
   ALERT_MS: 6000,     // how long a full-screen alert holds
   ALERT_QUEUE: 3,     // alerts waiting beyond this are dropped, oldest first
@@ -522,12 +522,40 @@ function simplify(pts, tol) {
 
 // Draws the track in its sectors, or all in one colour, and returns where on
 // it a fraction of the lap (0 at the line) falls, for the car map.
+// Lays nearly flat runs of the outline on one LED row (and nearly upright
+// runs on one column): a straight that drifts less than an LED would
+// otherwise step across a row boundary somewhere along it. Steeper lines,
+// real slopes, are left alone. pts is closed: its last point is its first.
+function straighten(pts) {
+  const n = pts.length - 1;
+  for (const ax of [1, 0]) {                  // 1: rows (flat runs), 0: columns
+    const along = 1 - ax;
+    const flat = i => {
+      const a = pts[i], b = pts[i + 1];
+      return Math.abs(b[ax] - a[ax]) <= 1.2 && Math.abs(b[along] - a[along]) >= 4;
+    };
+    let i = 0;
+    while (i < n) {
+      if (!flat(i)) { i++; continue; }
+      let j = i;
+      while (j < n && flat(j)) j++;           // segments i..j-1 are one flat run
+      let sum = 0;
+      for (let k = i; k <= j; k++) sum += pts[k][ax];
+      const v = Math.round(sum / (j - i + 1));
+      for (let k = i; k <= j; k++) pts[k][ax] = v;
+      i = j;
+    }
+    pts[n][ax] = pts[0][ax];                  // keep the loop closed
+  }
+  return pts;
+}
+
 function drawMap(m, bx, by, bw, bh, colour) {
   const k = Math.min((bw - 2) / m.w, (bh - 2) / m.h);
   const ox = bx + Math.round((bw - 2 - m.w * k) / 2), oy = by + Math.round((bh - 2 - m.h * k) / 2);
   const raw = m.points.map(p => [ox + p[0] * k, oy + p[1] * k]);
   raw.push(raw[0]);
-  const pts = simplify(raw, 0.7);
+  const pts = straighten(simplify(raw, 0.7));
   pts.pop();   // the loop closes itself below
   const n = pts.length;
   const seg = [];
@@ -568,44 +596,62 @@ function drawMap(m, bx, by, bw, bh, colour) {
   };
 }
 
-// The start/finish line, chequered across the track, and a thin arrow beside
-// it pointing the way the cars go: outside the track, or inside where outside
-// would run off the map. Both are snapped to the nearest 45 degrees so they
-// run straight along the LED grid.
+// The start/finish line, chequered across the track, and a thin arrow in the
+// middle of the straight it's on, pointing the way the cars go: outside the
+// track, or inside where outside would run off the map. Both are snapped to
+// the nearest 45 degrees so they run straight along the LED grid.
+const ARROW_OFF = 6;   // LEDs from the track to the arrow
+
+function snapDir(a, b) {
+  const ang = Math.round(Math.atan2(b[1] - a[1], b[0] - a[0]) / (Math.PI / 4)) * (Math.PI / 4);
+  return [Math.round(Math.cos(ang)), Math.round(Math.sin(ang))];
+}
+
 function drawStartLine(at, bx, by, bw, bh) {
-  const p = at(0), q = at(0.012);
-  const ang = Math.round(Math.atan2(q[1] - p[1], q[0] - p[0]) / (Math.PI / 4)) * (Math.PI / 4);
-  const dx = Math.round(Math.cos(ang)), dy = Math.round(Math.sin(ang));   // along the track, -1..1
-  let nx = -dy, ny = dx;                                                   // across it
+  const STEP = 0.004;
+  const [dx, dy] = snapDir(at(0), at(0.012));            // along the track, -1..1
+  // the straight: from the line, back and on while the track keeps this heading
+  const same = f => { const d = snapDir(at(f), at(f + STEP)); return d[0] === dx && d[1] === dy; };
+  let f0 = 0, f1 = 0;
+  while (f0 > -0.3 && same(f0 - STEP)) f0 -= STEP;
+  while (f1 < 0.3 && same(f1)) f1 += STEP;
+  const p = at(0), mid = at((f0 + f1) / 2);
   const x0 = Math.round(p[0]), y0 = Math.round(p[1]);
-  if (nx * (x0 - (bx + bw / 2)) + ny * (y0 - (by + bh / 2)) < 0) { nx = -nx; ny = -ny; }   // outward
-  const OFF = 6, HALF = 6;
+  const mx = Math.round(mid[0]), my = Math.round(mid[1]);
+
+  let nx = -dy, ny = dx;                                   // across the track
+  if (nx * (mx - (bx + bw / 2)) + ny * (my - (by + bh / 2)) < 0) { nx = -nx; ny = -ny; }   // outward
+  const OFF = ARROW_OFF, HALF = 6;
   const inside = (x, y) => x >= bx && x <= bx + bw && y >= by && y <= by + bh;
-  const fits = k => inside(x0 + nx * k * (OFF + 3) - dx * HALF, y0 + ny * k * (OFF + 3) - dy * HALF)
-                 && inside(x0 + nx * k * (OFF + 3) + dx * HALF, y0 + ny * k * (OFF + 3) + dy * HALF);
+  const fits = k => inside(mx + nx * k * (OFF + 2) - dx * HALF, my + ny * k * (OFF + 2) - dy * HALF)
+                 && inside(mx + nx * k * (OFF + 2) + dx * HALF, my + ny * k * (OFF + 2) + dy * HALF);
   if (!fits(1) && fits(-1)) { nx = -nx; ny = -ny; }
 
-  // chequered in 2x2 squares: eight LEDs across the track, four along it
+  // a fine chequer, single LEDs of white and dark grey: eight across the
+  // track, two along it
+  const cx = -dy, cy = dx;
   for (let k = -4; k <= 3; k++) {
-    for (let c = -1; c <= 2; c++) {
-      const x = x0 + nx * k + dx * c, y = y0 + ny * k + dy * c;
-      if ((Math.floor((k + 4) / 2) + Math.floor((c + 1) / 2)) % 2 === 0) setPx(x, y, C.white);
-      else if (x >= 0 && y >= 0 && x < W && y < H) fb[y * W + x] = 0;
+    for (let c = 0; c <= 1; c++) {
+      const x = x0 + cx * k + dx * c, y = y0 + cy * k + dy * c;
+      setPx(x, y, (k + c + 8) % 2 === 0 ? C.white : C.faint);
     }
   }
-  // the arrow, one LED thick
-  const ox = x0 + nx * OFF, oy = y0 + ny * OFF;
+  // the arrow, one LED thick, with a head two LEDs deep
+  const ox = mx + nx * OFF, oy = my + ny * OFF;
   for (let i = -HALF; i <= HALF; i++) setPx(ox + dx * i, oy + dy * i, C.white);
   const tx = ox + dx * HALF, ty = oy + dy * HALF;
   const h1 = [Math.sign(-dx + nx), Math.sign(-dy + ny)], h2 = [Math.sign(-dx - nx), Math.sign(-dy - ny)];
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= 2; i++) {
     setPx(tx + h1[0] * i, ty + h1[1] * i, C.white);
     setPx(tx + h2[0] * i, ty + h2[1] * i, C.white);
   }
-  // the area it all covers, so car labels can keep off it
-  const xs = [x0 - 5 * Math.abs(nx) - 2, x0 + 5 * Math.abs(nx) + 2, ox - dx * HALF, tx], ys = [y0 - 5 * Math.abs(ny) - 2, y0 + 5 * Math.abs(ny) + 2, oy - dy * HALF, ty];
-  const left = Math.min.apply(null, xs) - 3, top = Math.min.apply(null, ys) - 3;
-  return [left, top, Math.max.apply(null, xs) + 4 - left, Math.max.apply(null, ys) + 4 - top];
+  // the areas they cover, so car labels can keep off them
+  const box = (xs, ys) => {
+    const l = Math.min.apply(null, xs) - 2, t = Math.min.apply(null, ys) - 2;
+    return [l, t, Math.max.apply(null, xs) + 3 - l, Math.max.apply(null, ys) + 3 - t];
+  };
+  return [box([x0 - 5, x0 + 5], [y0 - 5, y0 + 5]),
+          box([ox - dx * HALF, tx, ox + nx * 3, ox - nx * 3], [oy - dy * HALF, ty, oy + ny * 3, oy - ny * 3])];
 }
 
 // Every car's code beside its dot, leaders first. Each label tries right,
@@ -616,7 +662,7 @@ function labelCars(cars, at, keepOff) {
   const hit = (a, b) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
   const dots = cars.map(r => { const p = at(r.lap_pos); return [Math.round(p[0]), Math.round(p[1])]; });
   dots.forEach(d => taken.push([d[0] - 1, d[1] - 1, 4, 4]));
-  if (keepOff) taken.push(keepOff);
+  if (keepOff) keepOff.forEach(b => taken.push(b));
   cars.forEach((r, i) => {
     const d = dots[i], w = textW(r.tla) - 1, h = 7;
     const spots = [[d[0] + 4, d[1] - 3], [d[0] - 3 - w, d[1] - 3], [d[0] - Math.round(w / 2), d[1] - 10],

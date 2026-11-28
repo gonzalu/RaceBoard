@@ -8,7 +8,8 @@
 
 RaceBoard turns any browser, and any TV with a Chromecast or a spare Raspberry
 Pi, into a live F1 timing tower: the whole field, gaps and intervals, tyres,
-pit stops, flags and race control messages, updating as it happens. Between
+pit stops, flags and race control messages, updating as it happens, with a
+map of every car on track flashing up every 20 seconds. Between
 sessions it counts down to the next one and cycles through the track, the
 standings, the latest results and what happened in F1 on this day, with each
 driver's flag beside their name. MotoGP gets its own timing tower and pages
@@ -25,9 +26,9 @@ feed as the timing page on formula1.com, which needs no login for timing data.
 
 ![RaceBoard cycling through its pages](img/demo.gif)
 
-*Practice under yellow, VSC and red flags, a race with its alerts, then the
-pages between sessions: the next race, the track, the standings, the last
-result and on this day.*
+*Practice under yellow, VSC and red flags with the car map, a race with its
+alerts, then the pages between sessions: the next race, the track, the
+standings, the last result, MotoGP and on this day.*
 
 **▶ [Watch the walkthrough on YouTube](https://youtu.be/_0CmI_roeq4)**
 
@@ -35,20 +36,22 @@ result and on this day.*
 
 | | |
 |---|---|
-| ![practice timing](img/timing.png) | ![race timing](img/race.png) |
-| **Practice and qualifying:** all 22 cars, best laps, tyres | **A race:** intervals, tyres, cars stopped and out |
-| ![red flag](img/red-flag.png) | ![overtake alert](img/overtake.png) |
-| **Flags** fill the band across the top | **Alerts** take over for overtakes, battles and flags |
-| ![next race](img/next.png) | ![track page](img/track.png) |
-| **The next race:** countdown and the weekend in your time zone | **The track,** turned as F1 TV shows it, in sectors |
-| ![driver standings](img/drivers.png) | ![constructor standings](img/teams.png) |
-| **Driver standings,** with each driver's flag | **Constructors,** with each team's home |
-| ![last result](img/result.png) | ![on this day](img/today.png) |
-| **The last race's result** | **On this day** in F1 |
-| ![the day's story](img/story.png) | ![on a TV](img/tv.jpg) |
-| **The day's story,** from Wikipedia | **On a real TV,** cast from a Chromecast |
+| ![practice timing](img/timing.png) | ![car map](img/car-map.png) |
+| **Practice and qualifying:** all 22 cars, best laps, tyres, who's in the pits | **The car map,** every 20 s: every car on track, from the free feed |
+| ![race timing](img/race.png) | ![red flag](img/red-flag.png) |
+| **A race:** intervals, tyres, cars stopped and out | **Flags** fill the band across the top |
+| ![overtake alert](img/overtake.png) | ![next race](img/next.png) |
+| **Alerts** take over for overtakes, battles and flags | **The next race:** countdown and the weekend in your time zone |
+| ![track page](img/track.png) | ![driver standings](img/drivers.png) |
+| **The track,** turned as F1 TV shows it, in sectors, with the start line and direction | **Driver standings,** with each driver's flag |
+| ![constructor standings](img/teams.png) | ![last result](img/result.png) |
+| **Constructors,** with each team's home | **The last race's result** |
+| ![on this day](img/today.png) | ![the day's story](img/story.png) |
+| **On this day** in F1 | **The day's story,** from Wikipedia |
 | ![MotoGP timing](img/motogp-timing.png) | ![next MotoGP round](img/motogp-next.png) |
 | **MotoGP** too: its own timing tower | **MotoGP between sessions:** the next round, standings, the latest result |
+| ![MotoGP standings](img/motogp-standings.png) | ![on a TV](img/tv.jpg) |
+| **MotoGP standings,** with places gained at the last race or sprint | **On a real TV,** cast from a Chromecast |
 
 ---
 
@@ -61,19 +64,24 @@ a race ends, or 30 minutes after practice or qualifying):
 - a value column that cycles every 8 s: interval, gap to the leader, last
   lap and places gained or lost since the start in a race; best lap and gap
   in practice and qualifying
-- the current tyre and its age, `IN PIT` / `PIT EXIT` / `STOPPED` / `OUT`
+- the current tyre and its age, and beside it who's in the pits: `P` in the
+  pit lane, `E` on the way out. In practice and qualifying, and after the
+  flag, a car in the pits keeps its time; in a running race a stop takes the
+  value column (`IN PIT` / `PIT EXIT`). `STOPPED` and `OUT` always do
 - fastest lap holder in purple; knocked-out qualifiers dimmed
 - laps (race) or session clock (practice, qualifying)
 - track status: green, yellow, safety car, VSC, red flag and chequered flag
   fill the whole band. A red flag stays up until the session restarts, and
   the clock follows F1's own, extensions included
 - the latest race control message along the bottom, or the weather
-- every 20 s, for 5 s, a map of the track with every car on it as a dot in
-  its team colour and code, the top ten down the side, and the start/finish
-  line with an arrow for the direction of travel (on the track page too). F1's car
-  positions need an F1 TV login, so the dots come from the mini-sectors each
-  car has passed this lap, which the free feed does carry: about one every
-  200 m, so each dot is within a corner or so of the real car
+- every 20 s, for 5 s, **the car map**: the track with every car on it as a
+  dot in its team colour, labelled with its code (labels never overlap; in a
+  tight pack the cars behind go without), the top ten down the side, the
+  number in the pits, and the start/finish line with an arrow for the
+  direction of travel. F1's car positions need an F1 TV login, so the dots
+  come from the mini-sectors each car has passed this lap, which the free
+  feed does carry: about one every 200 m, so each dot is within a corner or
+  so of the real car
 
 **Full-screen alerts** take over for 6 s when something happens:
 
@@ -96,7 +104,8 @@ a false one.
   schedule in your time zone
 - the track: a map of the circuit, turned the way F1 TV shows it, in its
   three sectors (split evenly by distance from the finish line, so close to
-  the real ones rather than exact), with its length, when it first held a
+  the real ones rather than exact) with the start/finish line and the
+  direction of travel, and its length, when it first held a
   Grand Prix, who has won there most, the last winners, and the weekend
   forecast once it's within two weeks
 - on a sprint weekend, the sprint's result, with the points scored

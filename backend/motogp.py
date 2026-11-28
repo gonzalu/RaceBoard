@@ -223,6 +223,8 @@ async def _results(c):
                   ((x["rider"].get("legacy_id"), x.get("position") or 0) for x in st) if rid in bpos and i}
         break
     rounds = sum(1 for e in _d["calendar"] if datetime.fromisoformat(e["sessions"][-1]["end"]) < datetime.now(timezone.utc))
+    if result and result["name"].endswith("SPRINT"):
+        rounds = f"{rounds + 1} SPRINT"   # a weekend under way: its sprint is already counted
 
     _d["standings"] = [{
         "pos": x.get("position"),
