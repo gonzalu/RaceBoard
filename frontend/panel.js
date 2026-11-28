@@ -246,6 +246,8 @@ const FLAG_W = 10;
 const ROW_Y0 = 23, ROW_PITCH = 10, ROWS = 11, COL_X = [0, 129];
 
 function timingFields(t) {
+  // MotoGP's feed has no grid, so no places gained since the start
+  if (t.series === 'motogp' && t.type === 'Race') return [['interval', 'INTERVAL'], ['gap', 'GAP'], ['last', 'LAST LAP']];
   return t.type === 'Race'
     ? [['interval', 'INTERVAL'], ['gap', 'GAP'], ['last', 'LAST LAP'], ['gained', 'SINCE START']]
     : [['best', 'BEST LAP'], ['gap', 'GAP']];
@@ -286,6 +288,8 @@ function drawTowerRow(t, r, i, field, index) {
   if (r.tyre) {
     drawText(x0 + 100, y, r.tyre, dim ? C.dim : (TYRE[r.tyre] || C.text));
     if (r.tyre_laps != null) drawRight(x0 + 117, y, fit(r.tyre_laps, 2), C.dim);
+  } else if (r.number) {
+    drawRight(x0 + 117, y, fit(r.number, 2), C.dim);   // MotoGP: no tyres in its feed, so the bike's number
   }
 }
 
@@ -362,16 +366,20 @@ function idlePages(idle) {
   if (idle.drivers.length) pages.push('drivers');
   if (idle.teams.length) pages.push('teams');
   if (idle.last) pages.push('last');
+  const m = idle.motogp;
+  if (m && m.next) pages.push('moto_next');
+  if (m && m.standings && m.standings.length) pages.push('moto_riders');
+  if (m && m.result && m.result.rows.length) pages.push('moto_last');
   if (idle.today && idle.today.items && idle.today.items.length) pages.push('today');
   if (idle.today && idle.today.story) pages.push('story');
   return pages;
 }
 
-function sessionLength(name) { return name === 'RACE' ? 2 * 3600e3 : 3600e3; }
+function sessionLength(s) { return s.len_s ? s.len_s * 1000 : s.name === 'RACE' ? 2 * 3600e3 : 3600e3; }
 
 function buildNextFrame(n) {
   const now = Date.now();
-  drawText(0, 1, `ROUND ${n.round}`, C.dim);
+  drawText(0, 1, n.series ? `${n.series} ROUND ${n.round}` : `ROUND ${n.round}`, n.series ? C.amber : C.dim);
   drawRight(W - 1, 1, n.season, C.dim);
   const name = n.name.toUpperCase().replace(' GRAND PRIX', ' GP');
   if (FLAGS[n.flag]) {
@@ -385,7 +393,7 @@ function buildNextFrame(n) {
   drawCentered(33, fit(`${n.circuit}`.toUpperCase(), 42), C.dim);
 
   const sessions = n.sessions.map(s => ({ ...s, t: Date.parse(s.utc) }));
-  const live = sessions.find(s => s.t <= now && now < s.t + sessionLength(s.name));
+  const live = sessions.find(s => s.t <= now && now < s.t + sessionLength(s));
   const next = sessions.find(s => s.t > now);
   if (live) {
     drawCentered(50, `${live.name} IS ON NOW`, C.green, 2);
@@ -395,21 +403,27 @@ function buildNextFrame(n) {
   }
 
   hLine(77, C.faint);
-  let y = 82;
+  // F1 has five sessions; a MotoGP weekend's six need a tighter list
+  const step = sessions.length > 5 ? 9 : 10;
+  let y = sessions.length > 5 ? 80 : 82;
   for (const s of sessions) {
-    const past = s.t + sessionLength(s.name) <= now;
+    const past = s.t + sessionLength(s) <= now;
     const col = s === live ? C.green : s === next ? C.amber : past ? C.faint : C.text;
     drawText(40, y, s.name, col);
     drawRight(W - 41, y, s.local, col);
-    y += 10;
+    y += step;
   }
 }
 
 function buildDriversFrame(idle) {
-  drawText(0, 1, 'DRIVER STANDINGS', C.text);
-  if (idle.standings_round) drawRight(W - 1, 1, `AFTER R${idle.standings_round}`, C.dim);
+  drawStandings('DRIVER STANDINGS', idle.standings_round, idle.drivers);
+}
+
+function drawStandings(title, round, list) {
+  drawText(0, 1, title, C.text);
+  if (round) drawRight(W - 1, 1, `AFTER R${round}`, C.dim);
   hLine(21, C.faint);
-  idle.drivers.slice(0, ROWS * 2).forEach((d, i) => {
+  list.slice(0, ROWS * 2).forEach((d, i) => {
     const x0 = COL_X[i < ROWS ? 0 : 1], y = ROW_Y0 + (i % ROWS) * ROW_PITCH;
     fillRect(x0, y, 2, 7, hex(d.colour));
     drawRight(x0 + 15, y, orIf(d.pos, '-'), C.text);
@@ -436,11 +450,14 @@ function buildTeamsFrame(idle) {
 }
 
 function buildLastFrame(idle) {
-  const l = idle.last;
-  drawText(0, 1, fit(l.name.toUpperCase().replace(' GRAND PRIX', ' GP'), 30), C.text);
+  drawResult(idle.last.name.toUpperCase().replace(' GRAND PRIX', ' GP'), idle.last.results);
+}
+
+function drawResult(name, results) {
+  drawText(0, 1, fit(name, 30), C.text);
   drawRight(W - 1, 1, 'RESULT', C.dim);
   hLine(21, C.faint);
-  l.results.slice(0, ROWS * 2).forEach((r, i) => {
+  results.slice(0, ROWS * 2).forEach((r, i) => {
     const x0 = COL_X[i < ROWS ? 0 : 1], y = ROW_Y0 + (i % ROWS) * ROW_PITCH;
     fillRect(x0, y, 2, 7, hex(r.colour));
     drawRight(x0 + 15, y, r.pos, C.text);
@@ -676,6 +693,9 @@ function buildIdleFrame(idle, pageIdx) {
   else if (page === 'sprint') buildSprintFrame(idle);
   else if (page === 'today') buildTodayFrame(idle);
   else if (page === 'story') buildStoryFrame(idle);
+  else if (page === 'moto_next') buildNextFrame(idle.motogp.next);
+  else if (page === 'moto_riders') drawStandings('MOTOGP STANDINGS', idle.motogp.standings_round, idle.motogp.standings);
+  else if (page === 'moto_last') drawResult(`MOTOGP ${idle.motogp.result.name}`, idle.motogp.result.rows);
   else buildLastFrame(idle);
 }
 

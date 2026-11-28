@@ -11,7 +11,8 @@ Pi, into a live F1 timing tower: the whole field, gaps and intervals, tyres,
 pit stops, flags and race control messages, updating as it happens. Between
 sessions it counts down to the next one and cycles through the track, the
 standings, the latest results and what happened in F1 on this day, with each
-driver's flag beside their name.
+driver's flag beside their name. MotoGP gets its own timing tower and pages
+too, with F1 first when both are on.
 
 It isn't styled to look like an LED panel, it emulates one: a real
 framebuffer, text drawn from the Adafruit GFX bitmap font that LED matrix
@@ -46,6 +47,8 @@ result and on this day.*
 | **The last race's result** | **On this day** in F1 |
 | ![the day's story](img/story.png) | ![on a TV](img/tv.jpg) |
 | **The day's story,** from Wikipedia | **On a real TV,** cast from a Chromecast |
+| ![MotoGP timing](img/motogp-timing.png) | ![next MotoGP round](img/motogp-next.png) |
+| **MotoGP** too: its own timing tower | **MotoGP between sessions:** the next round, standings, the latest result |
 
 ---
 
@@ -104,12 +107,33 @@ Country flags, drawn LED by LED at 10×7, mark the host of the next Grand
 Prix, every driver in the standings and results, and each team's home in the
 constructors' table.
 
+### MotoGP
+
+MotoGP sessions get the same timing tower: all 22 riders in their team
+colours, with best laps and gaps in practice and qualifying, and intervals,
+gaps and last laps in a race. The overtake, battle and chequered flag alerts
+work the same way. Riders get three-letter codes like F1's; where they'd
+clash (Marc and Alex Marquez, Martin, Marini) each takes an initial instead:
+`MMA`, `AMA`. MotoGP's live feed has no flags, race control or tyres, so the
+bike's number takes the tyre column and the band only shows the chequered
+flag.
+
+F1 comes first. A running F1 session always has the board; a MotoGP session
+takes it when F1 is between sessions, counting down to one, or holding a
+finished session's result.
+
+In the week either side of a MotoGP round, three pages join the cycle between
+sessions: the next round with its weekend in your time zone, the riders'
+standings with places gained or lost, and the latest race or sprint result.
+The rest of the year they stay away. `RACEBOARD_MOTOGP=0` turns MotoGP off.
+
 ## Where the data comes from
 
 | What | Source | Notes |
 |---|---|---|
 | Live timing | `livetiming.formula1.com/signalrcore` | F1's own feed. Unofficial and undocumented; no login needed for timing. Car telemetry and GPS need an F1 TV login, so RaceBoard doesn't use them. |
 | Schedule, standings, results, history | [Jolpica](https://github.com/jolpica/jolpica-f1) (`api.jolpi.ca`) | The successor to the Ergast API. Free, no key. Every winner since 1950 is fetched once and kept in `data/history.json`, refreshed weekly. Where each title was clinched, and every driver's birthday, are worked out once (a few minutes of paced requests the first time) and kept in `data/lore.json`. |
+| MotoGP: calendar, live timing, standings, results | MotoGP's own API (`api.motogp.pulselive.com`) | The one motogp.com runs on. Unofficial and undocumented; no login. Live timing is polled every 4 s, only while a MotoGP session is on. Standings and results are kept in `data/motogp.json`. |
 | Race weekend forecast | [Open-Meteo](https://open-meteo.com/) | Free, no key. |
 | The day's story | [Wikipedia](https://en.wikipedia.org/) | The summary of the race or driver, through its REST API. Free, no key. Kept in `data/lore.json`. |
 | Track maps | [MultiViewer](https://multiviewer.app/) (`api.multiviewer.app`) | F1's own track outline and the rotation F1 TV uses, as the live timing apps draw them. Free, no key. Kept in `data/circuits/`, refreshed monthly. |
@@ -257,6 +281,9 @@ RACEBOARD_REPLAY_SPEED=4 \
 A plain snapshot (one JSON object, the hub's answer to a subscribe) also
 works; it shows that moment frozen.
 
+MotoGP sessions are recorded too, as `*_MotoGP_<round>_<session>.jsonl`, and
+play back with `RACEBOARD_MOTOGP_REPLAY`.
+
 ## Configuration
 
 All in `raceboard.env`; see `raceboard.env.example` for the full list.
@@ -272,6 +299,8 @@ All in `raceboard.env`; see `raceboard.env.example` for the full list.
 | `RACEBOARD_RECORD` | `1` | Record live sessions to `data/recordings/` |
 | `RACEBOARD_REPLAY` | | Replay a recording instead of the live feed |
 | `RACEBOARD_REPLAY_SPEED` | `1` | Replay speed multiplier |
+| `RACEBOARD_MOTOGP` | `1` | MotoGP's timing tower and pages; `0` turns them off |
+| `RACEBOARD_MOTOGP_REPLAY` | | Replay a MotoGP recording instead of its live feed |
 
 ## License
 

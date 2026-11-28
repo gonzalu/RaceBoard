@@ -37,7 +37,19 @@ RECORD = os.environ.get("RACEBOARD_RECORD", "1").strip() not in ("0", "false", "
 # the server's own local time.
 TZ = os.environ.get("RACEBOARD_TZ", "").strip()
 
-LIVE_BASE = "https://livetiming.formula1.com"
+def _on(name, default="1"):
+    return os.environ.get(name, default).strip().lower() not in ("0", "false", "no", "off", "")
+
+
+# MotoGP: its timing tower when no F1 session is on, and its pages between
+# sessions around a MotoGP round. 0 turns it all off.
+MOTOGP = _on("RACEBOARD_MOTOGP")
+
+# Play a MotoGP recording (data/recordings/*_MotoGP_*.jsonl) instead of its
+# live feed, at RACEBOARD_REPLAY_SPEED.
+MOTOGP_REPLAY = os.environ.get("RACEBOARD_MOTOGP_REPLAY", "").strip()
+
+LIVE_BASE ="https://livetiming.formula1.com"
 JOLPICA = "https://api.jolpi.ca/ergast/f1"
 
 # Full-screen alerts during a session, any of: overtake, battle, flag,

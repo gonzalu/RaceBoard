@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import board, circuits, config, history, lore, schedule
+from . import board, circuits, config, history, lore, motogp, schedule
 from .alerts import Alerts
 from .livetiming import Feed
 
@@ -59,7 +59,8 @@ BUILD = _build_id()
 
 @asynccontextmanager
 async def lifespan(app):
-    tasks = [asyncio.create_task(feed.run()), asyncio.create_task(schedule.run())]
+    tasks = [asyncio.create_task(feed.run()), asyncio.create_task(schedule.run()),
+             asyncio.create_task(motogp.run())]
     yield
     for t in tasks:
         t.cancel()
@@ -78,6 +79,16 @@ def api_board():
         nxt = dict(nxt, sessions=[dict(s, local=_local(s["utc"])) for s in nxt["sessions"]])
     age = feed.age_s()
     timing = board.build(feed) if mode == "timing" else None
+    # MotoGP when no F1 session is on, and when one is running while F1 is
+    # only counting down to its session or holding a finished one's result.
+    # A running F1 session always wins.
+    moto_timing = motogp.timing()
+    f1_running = timing and timing["status"] in board.RUNNING
+    if moto_timing and not f1_running and (not timing or moto_timing["status"] == "Started"):
+        timing, mode, age = moto_timing, "timing", None
+    moto = motogp.idle()
+    if moto and moto.get("next"):
+        moto["next"] = dict(moto["next"], sessions=[dict(s, local=_local(s["utc"])) for s in moto["next"]["sessions"]])
     alerts.update(timing)
     today = datetime.now(TZ).date() if TZ else date.today()
     return {
@@ -104,6 +115,7 @@ def api_board():
             "map": circuits.outline(nxt["lat"], nxt["long"], nxt.get("circuitId")) if nxt and "lat" in nxt else None,
             "track": history.at_circuit(nxt["circuitId"]) if nxt and nxt.get("circuitId") else None,
             "today": lore.on_this_day(today),
+            "motogp": moto,
             "error": sched.get("error"),
         },
     }
